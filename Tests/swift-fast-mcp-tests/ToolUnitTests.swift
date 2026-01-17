@@ -5,6 +5,53 @@ import Testing
 
 @testable import FastMCP
 
+@Suite("GreetingPrompt Unit Tests")
+struct GreetingPromptUnitTests {
+
+  let prompt = GreetingPrompt()
+
+  @Test
+  func promptHasCorrectName() {
+    #expect(prompt.name == "greeting")
+  }
+
+  @Test
+  func promptHasDescription() {
+    #expect(prompt.description != nil)
+    #expect(prompt.description!.contains("greeting"))
+  }
+
+  @Test
+  func promptHasArguments() {
+    #expect(prompt.arguments != nil)
+    #expect(prompt.arguments!.count == 2)
+    #expect(prompt.arguments!.first?.name == "name")
+  }
+
+  @Test
+  func returnsInformalMessagesWithName() async throws {
+    let messages = try await prompt.getMessages(arguments: [
+      "name": .string("Alice")
+    ])
+    #expect(messages.count == 2)
+  }
+
+  @Test
+  func returnsFormalMessagesWhenRequested() async throws {
+    let messages = try await prompt.getMessages(arguments: [
+      "name": .string("Bob"),
+      "formal": .bool(true),
+    ])
+    #expect(messages.count == 2)
+  }
+
+  @Test
+  func usesDefaultNameWhenNotProvided() async throws {
+    let messages = try await prompt.getMessages(arguments: nil)
+    #expect(messages.count == 2)
+  }
+}
+
 @Suite("MathTool Unit Tests")
 struct MathToolUnitTests {
 

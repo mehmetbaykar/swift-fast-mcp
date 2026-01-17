@@ -57,6 +57,18 @@ struct BuilderTests {
   }
 
   @Test
+  func builderStartsWithEmptyPrompts() {
+    let builder = FastMCP.builder()
+    #expect(builder.prompts.isEmpty)
+  }
+
+  @Test
+  func samplingIsDisabledByDefault() {
+    let builder = FastMCP.builder()
+    #expect(builder.samplingEnabled == false)
+  }
+
+  @Test
   func nameMethodUpdatesServerName() {
     let builder = FastMCP.builder().name("CustomServer")
     #expect(builder.serverName == "CustomServer")
@@ -86,12 +98,39 @@ struct BuilderTests {
   }
 
   @Test
+  func addPromptsMethodAddsPrompts() {
+    let builder = FastMCP.builder().addPrompts([GreetingPrompt()])
+    #expect(builder.prompts.count == 1)
+    #expect(builder.prompts.first?.name == "greeting")
+  }
+
+  @Test
+  func addPromptsMethodDeduplicatesPromptsWithSameName() {
+    let builder = FastMCP.builder()
+      .addPrompts([GreetingPrompt()])
+      .addPrompts([GreetingPrompt()])
+    #expect(builder.prompts.count == 1)
+  }
+
+  @Test
+  func enableSamplingMethodEnablesSampling() {
+    let builder = FastMCP.builder().enableSampling()
+    #expect(builder.samplingEnabled == true)
+  }
+
+  @Test
+  func enableSamplingWithFalseDisablesSampling() {
+    let builder = FastMCP.builder().enableSampling(true).enableSampling(false)
+    #expect(builder.samplingEnabled == false)
+  }
+
+  @Test
   func transportMethodUpdatesTransportConfig() {
-    let builder = FastMCP.builder().transport(.http(port: 8080))
-    if case .http(let port) = builder.transportConfig {
-      #expect(port == 8080)
+    let builder = FastMCP.builder().transport(.inMemory)
+    if case .inMemory = builder.transportConfig {
+      #expect(true)
     } else {
-      Issue.record("Expected HTTP transport with port 8080")
+      Issue.record("Expected inMemory transport")
     }
   }
 
@@ -127,6 +166,8 @@ struct BuilderTests {
       .version("3.0.0")
       .addTools([WeatherTool()])
       .addTools([MathTool()])
+      .addPrompts([GreetingPrompt()])
+      .enableSampling()
       .transport(.stdio)
       .logLevel(.warning)
       .shutdownSignals([.sigterm])
@@ -136,6 +177,8 @@ struct BuilderTests {
     #expect(builder.serverName == "FullServer")
     #expect(builder.serverVersion == "3.0.0")
     #expect(builder.tools.count == 2)
+    #expect(builder.prompts.count == 1)
+    #expect(builder.samplingEnabled == true)
     #expect(builder.logLevel == .warning)
     #expect(builder.shutdownSignals == [.sigterm])
     #expect(builder.onStartHandler != nil)
@@ -152,24 +195,12 @@ struct BuilderTests {
   }
 
   @Test
-  func validatePassesForStdioTransport() throws {
-    let builder = FastMCP.builder().transport(.stdio)
-    try builder.validate()
-  }
-
-  @Test
-  func validateThrowsForHttpTransport() {
-    let builder = FastMCP.builder().transport(.http(port: 8080))
-    #expect(throws: FastMCPError.self) {
-      try builder.validate()
-    }
-  }
-
-  @Test
-  func httpTransportThrowsNotImplementedError() async {
-    let builder = FastMCP.builder().transport(.http(port: 8080))
-    await #expect(throws: FastMCPError.self) {
-      try await builder.run()
+  func inMemoryTransportIsAvailable() {
+    let builder = FastMCP.builder().transport(.inMemory)
+    if case .inMemory = builder.transportConfig {
+      #expect(true)
+    } else {
+      Issue.record("Expected inMemory transport")
     }
   }
 }

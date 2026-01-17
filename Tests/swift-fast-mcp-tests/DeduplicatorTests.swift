@@ -80,6 +80,40 @@ struct MockResource: MCPResource {
   }
 }
 
+@Suite("Prompt Deduplicator Tests")
+struct PromptDeduplicatorTests {
+
+  let deduplicator = PromptDeduplicator()
+
+  @Test
+  func emptyInputsReturnEmptyResult() {
+    let result = deduplicator.deduplicate([], adding: [])
+    #expect(result.isEmpty)
+  }
+
+  @Test
+  func existingPromptsArePreserved() {
+    let existing: [any MCPPrompt] = [GreetingPrompt()]
+    let result = deduplicator.deduplicate(existing, adding: [])
+    #expect(result.count == 1)
+  }
+
+  @Test
+  func newPromptsAreAddedToEmpty() {
+    let newPrompts: [any MCPPrompt] = [GreetingPrompt()]
+    let result = deduplicator.deduplicate([], adding: newPrompts)
+    #expect(result.count == 1)
+  }
+
+  @Test
+  func duplicatePromptsAreFilteredByName() {
+    let existing: [any MCPPrompt] = [GreetingPrompt()]
+    let newPrompts: [any MCPPrompt] = [GreetingPrompt()]
+    let result = deduplicator.deduplicate(existing, adding: newPrompts)
+    #expect(result.count == 1)
+  }
+}
+
 @Suite("Resource Deduplicator Tests")
 struct ResourceDeduplicatorTests {
 

@@ -27,3 +27,18 @@ struct ResourceDeduplicator: Sendable {
     return result
   }
 }
+
+struct PromptDeduplicator: Sendable {
+  func deduplicate(_ existing: [any MCPPrompt], adding new: [any MCPPrompt])
+    -> [any MCPPrompt]
+  {
+    var result = existing
+    let existingNames = Set(existing.map { $0.name })
+
+    for prompt in new where !existingNames.contains(prompt.name) {
+      result.append(prompt)
+    }
+
+    return result
+  }
+}

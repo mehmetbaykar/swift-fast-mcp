@@ -21,6 +21,8 @@ extension FastMCP {
     var serverVersion: String
     var tools: [any MCPTool]
     var resources: [any MCPResource]
+    var prompts: [any MCPPrompt]
+    var samplingEnabled: Bool
     var transportConfig: Transport
     var logLevel: Logger.Level
     var shutdownSignals: [UnixSignal]
@@ -29,12 +31,15 @@ extension FastMCP {
 
     let toolDeduplicator = ToolDeduplicator()
     let resourceDeduplicator = ResourceDeduplicator()
+    let promptDeduplicator = PromptDeduplicator()
 
     public init() {
       self.serverName = ProcessInfo.processInfo.processName
       self.serverVersion = "1.0.0"
       self.tools = []
       self.resources = []
+      self.prompts = []
+      self.samplingEnabled = false
       self.transportConfig = .stdio
       self.logLevel = .info
       self.shutdownSignals = [.sigterm, .sigint]
@@ -63,6 +68,18 @@ extension FastMCP {
     public func addResources(_ newResources: [any MCPResource]) -> Builder {
       var copy = self
       copy.resources = resourceDeduplicator.deduplicate(copy.resources, adding: newResources)
+      return copy
+    }
+
+    public func addPrompts(_ newPrompts: [any MCPPrompt]) -> Builder {
+      var copy = self
+      copy.prompts = promptDeduplicator.deduplicate(copy.prompts, adding: newPrompts)
+      return copy
+    }
+
+    public func enableSampling(_ enabled: Bool = true) -> Builder {
+      var copy = self
+      copy.samplingEnabled = enabled
       return copy
     }
 
@@ -97,18 +114,18 @@ extension FastMCP {
     }
 
     public func run() async throws {
-      try validate()
-
       var logger = Logger(label: serverName)
       logger.logLevel = logLevel
 
-      if tools.isEmpty && resources.isEmpty {
-        logger.warning("Server starting with no tools or resources registered")
+      if tools.isEmpty && resources.isEmpty && prompts.isEmpty {
+        logger.warning("Server starting with no tools, resources, or prompts registered")
       }
 
       let capabilities = CapabilitiesBuilder.build(
         hasTools: !tools.isEmpty,
-        hasResources: !resources.isEmpty
+        hasResources: !resources.isEmpty,
+        hasPrompts: !prompts.isEmpty,
+        hasSampling: samplingEnabled
       )
 
       let server = Server(
@@ -119,8 +136,9 @@ extension FastMCP {
 
       await server.register(tools: tools)
       await server.register(resources: resources)
+      await server.register(prompts: prompts)
 
-      let mcpTransport = StdioTransport()
+      let mcpTransport: MCP.Transport = createTransport(logger: logger)
 
       let service = FastMCPService(
         server: server,
@@ -139,10 +157,14 @@ extension FastMCP {
       try await serviceGroup.run()
     }
 
-    func validate() throws {
-      if case .http = transportConfig {
-        throw FastMCPError.invalidConfiguration(
-          "HTTP transport is not yet implemented - use .transport(.stdio) for v1")
+    private func createTransport(logger: Logger) -> MCP.Transport {
+      switch transportConfig {
+      case .stdio:
+        return StdioTransport(logger: logger)
+      case .inMemory:
+        return InMemoryTransport()
+      case .custom(let transport):
+        return transport
       }
     }
   }

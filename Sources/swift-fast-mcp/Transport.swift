@@ -1,6 +1,8 @@
 import Foundation
+import MCP
 
 public enum Transport: Sendable {
   case stdio
-  case http(port: Int)
+  case inMemory
+  case custom(MCP.Transport)
 }

@@ -19,7 +19,6 @@ let package = Package(
     .package(url: "https://github.com/modelcontextprotocol/swift-sdk", from: "0.10.2"),
     .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.9.1"),
     .package(url: "https://github.com/mehmetbaykar/swift-mcp-toolkit.git", from: "0.2.1"),
-    .package(url: "https://github.com/apple/swift-log.git", from: "1.5.0"),
   ],
   targets: [
     .target(
@@ -29,7 +28,6 @@ let package = Package(
         .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
         .product(name: "UnixSignals", package: "swift-service-lifecycle"),
         .product(name: "MCPToolkit", package: "swift-mcp-toolkit"),
-        .product(name: "Logging", package: "swift-log"),
       ],
       path: "Sources/swift-fast-mcp"
     ),
