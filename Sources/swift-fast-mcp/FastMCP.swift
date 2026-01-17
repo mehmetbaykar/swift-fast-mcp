@@ -24,7 +24,7 @@ extension FastMCP {
     var prompts: [any MCPPrompt]
     var samplingEnabled: Bool
     var transportConfig: Transport
-    var logLevel: Logger.Level
+    var customLogger: Logger?
     var shutdownSignals: [UnixSignal]
     var onStartHandler: (@Sendable () async -> Void)?
     var onShutdownHandler: (@Sendable () async -> Void)?
@@ -41,7 +41,7 @@ extension FastMCP {
       self.prompts = []
       self.samplingEnabled = false
       self.transportConfig = .stdio
-      self.logLevel = .info
+      self.customLogger = nil
       self.shutdownSignals = [.sigterm, .sigint]
       self.onStartHandler = nil
       self.onShutdownHandler = nil
@@ -89,9 +89,9 @@ extension FastMCP {
       return copy
     }
 
-    public func logLevel(_ level: Logger.Level) -> Builder {
+    public func logger(_ logger: Logger) -> Builder {
       var copy = self
-      copy.logLevel = level
+      copy.customLogger = logger
       return copy
     }
 
@@ -114,8 +114,7 @@ extension FastMCP {
     }
 
     public func run() async throws {
-      var logger = Logger(label: serverName)
-      logger.logLevel = logLevel
+      let logger = customLogger ?? Logger(label: serverName)
 
       if tools.isEmpty && resources.isEmpty && prompts.isEmpty {
         logger.warning("Server starting with no tools, resources, or prompts registered")

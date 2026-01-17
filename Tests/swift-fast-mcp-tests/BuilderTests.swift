@@ -31,9 +31,9 @@ struct BuilderTests {
   }
 
   @Test
-  func builderUsesInfoLogLevelByDefault() {
+  func builderUsesNoLoggerByDefault() {
     let builder = FastMCP.builder()
-    #expect(builder.logLevel == .info)
+    #expect(builder.customLogger == nil)
   }
 
   @Test
@@ -133,9 +133,11 @@ struct BuilderTests {
   }
 
   @Test
-  func logLevelMethodUpdatesLogLevel() {
-    let builder = FastMCP.builder().logLevel(.debug)
-    #expect(builder.logLevel == .debug)
+  func loggerMethodSetsCustomLogger() {
+    var logger = Logger(label: "test")
+    logger.logLevel = .debug
+    let builder = FastMCP.builder().logger(logger)
+    #expect(builder.customLogger != nil)
   }
 
   @Test
@@ -159,6 +161,9 @@ struct BuilderTests {
 
   @Test
   func builderChainWorksWithAllOptions() {
+    var logger = Logger(label: "FullServer")
+    logger.logLevel = .warning
+
     let builder = FastMCP.builder()
       .name("FullServer")
       .version("3.0.0")
@@ -167,7 +172,7 @@ struct BuilderTests {
       .addPrompts([GreetingPrompt()])
       .enableSampling()
       .transport(.stdio)
-      .logLevel(.warning)
+      .logger(logger)
       .shutdownSignals([.sigterm])
       .onStart {}
       .onShutdown {}
@@ -177,7 +182,7 @@ struct BuilderTests {
     #expect(builder.tools.count == 2)
     #expect(builder.prompts.count == 1)
     #expect(builder.samplingEnabled == true)
-    #expect(builder.logLevel == .warning)
+    #expect(builder.customLogger != nil)
     #expect(builder.shutdownSignals == [.sigterm])
     #expect(builder.onStartHandler != nil)
     #expect(builder.onShutdownHandler != nil)

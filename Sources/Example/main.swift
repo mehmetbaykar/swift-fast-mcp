@@ -5,6 +5,10 @@ import Logging
 @main
 struct ExampleServer {
   static func main() async throws {
+    // Custom logger - configure level, handlers, metadata as needed
+    var logger = Logger(label: "FastMCP Example Server")
+    logger.logLevel = .info
+
     try await FastMCP.builder()
       .name("FastMCP Example Server")
       .version("1.0.0")
@@ -33,10 +37,10 @@ struct ExampleServer {
       // Transport - stdio (default), inMemory, or custom
       .transport(.stdio)
 
-      // Logging level see https://swiftpackageindex.com/apple/swift-log/documentation/logging/logger/level
-      .logLevel(.info)
+      // Custom logger - full control over logging configuration
+      .logger(logger)
 
-      // Graceful shutdown signals see https://swiftpackageindex.com/swift-server/swift-service-lifecycle/documentation/servicelifecycle/servicegroup/init(services:gracefulshutdownsignals:cancellationsignals:logger:)
+      // Graceful shutdown signals
       .shutdownSignals([.sigterm, .sigint])
 
       // Lifecycle hooks

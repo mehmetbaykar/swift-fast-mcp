@@ -135,6 +135,9 @@ struct GreetingPrompt: MCPPrompt {
 ## Builder API
 
 ```swift
+var logger = Logger(label: "my-server")
+logger.logLevel = .debug
+
 try await FastMCP.builder()
     .name("My Server")
     .version("1.0.0")
@@ -143,7 +146,7 @@ try await FastMCP.builder()
     .addPrompts([GreetingPrompt()])
     .enableSampling()
     .transport(.stdio)
-    .logLevel(.info)
+    .logger(logger)
     .shutdownSignals([.sigterm, .sigint])
     .onStart { print("Started") }
     .onShutdown { print("Stopped") }
