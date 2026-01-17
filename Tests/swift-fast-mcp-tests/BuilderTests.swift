@@ -24,10 +24,9 @@ struct BuilderTests {
   @Test
   func builderUsesStdioTransportByDefault() {
     let builder = FastMCP.builder()
-    if case .stdio = builder.transportConfig {
-      #expect(true)
-    } else {
+    guard case .stdio = builder.transportConfig else {
       Issue.record("Expected stdio transport by default")
+      return
     }
   }
 
@@ -127,10 +126,9 @@ struct BuilderTests {
   @Test
   func transportMethodUpdatesTransportConfig() {
     let builder = FastMCP.builder().transport(.inMemory)
-    if case .inMemory = builder.transportConfig {
-      #expect(true)
-    } else {
+    guard case .inMemory = builder.transportConfig else {
       Issue.record("Expected inMemory transport")
+      return
     }
   }
 
@@ -197,10 +195,9 @@ struct BuilderTests {
   @Test
   func inMemoryTransportIsAvailable() {
     let builder = FastMCP.builder().transport(.inMemory)
-    if case .inMemory = builder.transportConfig {
-      #expect(true)
-    } else {
+    guard case .inMemory = builder.transportConfig else {
       Issue.record("Expected inMemory transport")
+      return
     }
   }
 }
