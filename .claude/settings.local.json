@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "mcp__MetaMCP__context7__query-docs"
-    ]
-  }
-}
