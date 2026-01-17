@@ -178,7 +178,7 @@ Add to `claude_desktop_config.json`:
 ## Requirements
 
 - macOS 14+
-- Swift 6.0+
+- Swift 6.2+
 
 ## Dependencies
 
