@@ -1,0 +1,24 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:swift-fast-mcp}",
+      "name": "Debug Example",
+      "target": "Example",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug Example"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:swift-fast-mcp}",
+      "name": "Release Example",
+      "target": "Example",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release Example"
+    }
+  ]
+}

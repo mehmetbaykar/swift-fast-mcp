@@ -1,26 +1,50 @@
 // swift-tools-version: 6.2
-// The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
 let package = Package(
-    name: "swift-fast-mcp",
-    products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
-        .library(
-            name: "swift-fast-mcp",
-            targets: ["swift-fast-mcp"]
-        ),
-    ],
-    targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
-        .target(
-            name: "swift-fast-mcp"
-        ),
-        .testTarget(
-            name: "swift-fast-mcpTests",
-            dependencies: ["swift-fast-mcp"]
-        ),
-    ]
+  name: "swift-fast-mcp",
+  platforms: [.macOS(.v14)],
+  products: [
+    .library(
+      name: "FastMCP",
+      targets: ["FastMCP"]
+    ),
+    .executable(
+      name: "Example",
+      targets: ["Example"]
+    ),
+  ],
+  dependencies: [
+    .package(url: "https://github.com/modelcontextprotocol/swift-sdk", from: "0.10.2"),
+    .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.9.1"),
+    .package(url: "https://github.com/mehmetbaykar/swift-mcp-toolkit.git", from: "0.2.1"),
+    .package(url: "https://github.com/apple/swift-log.git", from: "1.5.0"),
+  ],
+  targets: [
+    .target(
+      name: "FastMCP",
+      dependencies: [
+        .product(name: "MCP", package: "swift-sdk"),
+        .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
+        .product(name: "UnixSignals", package: "swift-service-lifecycle"),
+        .product(name: "MCPToolkit", package: "swift-mcp-toolkit"),
+        .product(name: "Logging", package: "swift-log"),
+      ],
+      path: "Sources/swift-fast-mcp"
+    ),
+    .target(
+      name: "ExampleTools",
+      dependencies: ["FastMCP"]
+    ),
+    .executableTarget(
+      name: "Example",
+      dependencies: ["FastMCP", "ExampleTools"]
+    ),
+    .testTarget(
+      name: "swift-fast-mcp-tests",
+      dependencies: ["FastMCP", "ExampleTools"],
+      path: "Tests/swift-fast-mcp-tests"
+    ),
+  ]
 )
