@@ -23,31 +23,33 @@ struct GreetingPromptUnitTests {
 
   @Test
   func promptHasArguments() {
-    #expect(prompt.arguments != nil)
-    #expect(prompt.arguments!.count == 2)
-    #expect(prompt.arguments!.first?.name == "name")
+    let sdkPrompt = prompt.toPrompt()
+    #expect(sdkPrompt.arguments != nil)
+    #expect(sdkPrompt.arguments!.count == 2)
+    #expect(sdkPrompt.arguments!.contains { $0.name == "name" })
   }
 
   @Test
   func returnsInformalMessagesWithName() async throws {
-    let messages = try await prompt.getMessages(arguments: [
-      "name": .string("Alice")
-    ])
+    let messages = try await prompt.getMessages(
+      arguments: GreetingPrompt.Arguments(name: "Alice", formal: nil)
+    )
     #expect(messages.count == 2)
   }
 
   @Test
   func returnsFormalMessagesWhenRequested() async throws {
-    let messages = try await prompt.getMessages(arguments: [
-      "name": .string("Bob"),
-      "formal": .bool(true),
-    ])
+    let messages = try await prompt.getMessages(
+      arguments: GreetingPrompt.Arguments(name: "Bob", formal: true)
+    )
     #expect(messages.count == 2)
   }
 
   @Test
-  func usesDefaultNameWhenNotProvided() async throws {
-    let messages = try await prompt.getMessages(arguments: nil)
+  func returnsInformalMessagesWhenFormalIsFalse() async throws {
+    let messages = try await prompt.getMessages(
+      arguments: GreetingPrompt.Arguments(name: "Charlie", formal: false)
+    )
     #expect(messages.count == 2)
   }
 }
