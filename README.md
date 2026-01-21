@@ -23,7 +23,7 @@ That's it. Three lines to a working MCP server.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp", from: "1.0.0")
+    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp", from: "1.0.2")
 ]
 ```
 
