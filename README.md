@@ -2,6 +2,14 @@
 
 The fastest way to build MCP servers in Swift.
 
+<p align="center">
+If you found this helpful, you can support more open source work!
+<br><br>
+<a href="https://buymeacoffee.com/mehmetbaykar" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="60"></a>
+</p>
+
+---
+
 ```swift
 try await FastMCP.builder()
     .name("My Server")
