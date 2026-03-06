@@ -193,18 +193,16 @@ public struct GreetingPrompt: MCPPrompt {
 
 ## Reference Files
 
-Load these for detailed patterns and API reference:
+For detailed patterns and API reference, load files from the `reference/` directory:
 
-| File | When to load |
-|------|-------------|
-| `tools.md` | Building MCPTool implementations, error handling, enum parameters |
-| `resources.md` | Building MCPResource implementations, async content, MIME types |
-| `prompts.md` | Building MCPPrompt implementations, @PromptMessageBuilder, typed arguments |
-| `schemable.md` | @Schemable macro usage, enum schemas, optional params, nested types |
-| `builder-api.md` | Complete FastMCP.builder() method reference, all options and defaults |
-| `testing.md` | Writing Swift Testing unit and integration tests |
-| `transport.md` | Transport options: .stdio, .inMemory, .custom |
-| `limitations.md` | Known constraints and workarounds |
+- [reference/tools.md](reference/tools.md) — MCPTool protocol, ToolError, enum parameters, optional params
+- [reference/resources.md](reference/resources.md) — MCPResource protocol, async content, MIME types
+- [reference/prompts.md](reference/prompts.md) — MCPPrompt protocol, @PromptMessageBuilder, typed arguments
+- [reference/schemable.md](reference/schemable.md) — @Schemable macro usage, enum schemas, optional params, nested types
+- [reference/builder-api.md](reference/builder-api.md) — Complete FastMCP.builder() method reference, all options and defaults
+- [reference/testing.md](reference/testing.md) — Swift Testing unit and integration tests
+- [reference/transport.md](reference/transport.md) — Transport options: .stdio, .inMemory, .custom
+- [reference/limitations.md](reference/limitations.md) — Known constraints and workarounds
 
 ## Claude Desktop Integration
 

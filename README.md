@@ -197,21 +197,19 @@ Add to `claude_desktop_config.json`:
 
 ## Claude Code Skill
 
-FastMCP includes a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code) that lets an AI agent scaffold a complete MCP server project for you.
-
-Copy the `skills/` folder into your Claude Code project configuration:
+FastMCP includes a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) that lets an AI agent scaffold a complete MCP server project for you. Just copy the `skills/` folder into your `.claude/` directory and let Claude Code do the rest.
 
 ```bash
 cp -r skills/ .claude/skills/
 ```
 
-Then ask Claude Code to create a server:
+Then invoke the skill in Claude Code:
 
 ```
 /swift-fast-mcp MyServer tools,resources,prompts
 ```
 
-The agent will generate a full project with Package.swift, typed tools/resources/prompts, tests, and Claude Desktop configuration.
+Claude will generate a full project with Package.swift, typed tools/resources/prompts, tests, and Claude Desktop configuration.
 
 ## License
 
