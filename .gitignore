@@ -9,3 +9,4 @@ DerivedData/
 Package.resolved
 .claude/*
 !.claude/agents/
+!.claude/skills/

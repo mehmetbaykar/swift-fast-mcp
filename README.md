@@ -195,21 +195,39 @@ Add to `claude_desktop_config.json`:
 - [swift-service-lifecycle](https://github.com/swift-server/swift-service-lifecycle) - Graceful shutdown
 - [swift-log](https://github.com/apple/swift-log) - Logging
 
-## Claude Code Skill
+## Claude Code Integration
 
-FastMCP includes a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) that lets an AI agent scaffold a complete MCP server project for you. Just copy the `skills/` folder into your `.claude/` directory and let Claude Code do the rest.
+FastMCP ships with a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) and a [subagent](https://docs.anthropic.com/en/docs/claude-code/sub-agents) that let Claude Code scaffold and build MCP server projects for you.
+
+### Setup
+
+Copy the `skills/` and `.claude/` directories into your project:
 
 ```bash
+# Copy the skill (project scaffolding)
 cp -r skills/ .claude/skills/
+
+# Copy the agent (expert assistance)
+cp -r .claude/agents/ .claude/agents/
 ```
 
-Then invoke the skill in Claude Code:
+### Usage
+
+**Scaffold a new project** with the skill:
 
 ```
 /swift-fast-mcp MyServer tools,resources,prompts
 ```
 
-Claude will generate a full project with Package.swift, typed tools/resources/prompts, tests, and Claude Desktop configuration.
+Claude generates a complete project with Package.swift, typed tools/resources/prompts, tests, and Claude Desktop configuration.
+
+**Get expert help** with the subagent:
+
+Claude automatically delegates to the `swift-mcp-expert` agent when you ask about MCPTool, MCPResource, MCPPrompt implementations, the builder API, `@Schemable` types, or testing patterns. You can also invoke it explicitly:
+
+```
+Use the swift-mcp-expert to help me build a weather tool
+```
 
 ## License
 
