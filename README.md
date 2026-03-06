@@ -195,6 +195,24 @@ Add to `claude_desktop_config.json`:
 - [swift-service-lifecycle](https://github.com/swift-server/swift-service-lifecycle) - Graceful shutdown
 - [swift-log](https://github.com/apple/swift-log) - Logging
 
+## Claude Code Skill
+
+FastMCP includes a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code) that lets an AI agent scaffold a complete MCP server project for you.
+
+Copy the `skills/` folder into your Claude Code project configuration:
+
+```bash
+cp -r skills/ .claude/skills/
+```
+
+Then ask Claude Code to create a server:
+
+```
+/swift-fast-mcp MyServer tools,resources,prompts
+```
+
+The agent will generate a full project with Package.swift, typed tools/resources/prompts, tests, and Claude Desktop configuration.
+
 ## License
 
 MIT
