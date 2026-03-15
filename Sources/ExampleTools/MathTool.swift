@@ -4,6 +4,10 @@ public struct MathTool: MCPTool {
   public let name = "calculate"
   public let description: String? = "Perform basic math operations"
 
+  public var annotations: Tool.Annotations {
+    .init(readOnlyHint: true, idempotentHint: true)
+  }
+
   public init() {}
 
   @Schemable

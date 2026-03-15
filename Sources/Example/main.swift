@@ -5,13 +5,14 @@ import Logging
 @main
 struct ExampleServer {
   static func main() async throws {
-    // Custom logger - configure level, handlers, metadata as needed
     var logger = Logger(label: "FastMCP Example Server")
     logger.logLevel = .info
 
     try await FastMCP.builder()
       .name("FastMCP Example Server")
-      .version("1.0.0")
+      .title("FastMCP Example")
+      .version("2.0.0")
+      .instructions("This server provides weather, math, and greeting tools.")
 
       // Tools - AI-callable functions
       .addTools([
@@ -31,21 +32,22 @@ struct ExampleServer {
         GreetingPrompt()
       ])
 
-      // Sampling - Enable LLM sampling capability
-      .enableSampling()
+      // Capabilities
+      .enableCompletions()
+      .enableLogging()
 
-      // Transport - stdio (default), inMemory, or custom
-      .transport(.stdio)
+      // Transport — HTTP server on port 8080
+      .transport(.http(port: 8080))
 
       // Custom logger - full control over logging configuration
       .logger(logger)
 
-      // Graceful shutdown signals
-      .shutdownSignals([.sigterm, .sigint])
-
       // Lifecycle hooks
+      .onInitialize { clientInfo, capabilities in
+        print("Client connected: \(clientInfo.name) v\(clientInfo.version)")
+      }
       .onStart {
-        print("Server started successfully")
+        print("Server started on http://127.0.0.1:8080/mcp")
       }
       .onShutdown {
         print("Server shutting down")

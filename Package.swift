@@ -16,9 +16,10 @@ let package = Package(
     ),
   ],
   dependencies: [
-    .package(url: "https://github.com/modelcontextprotocol/swift-sdk", from: "0.10.2"),
+    .package(url: "https://github.com/modelcontextprotocol/swift-sdk", from: "0.11.0"),
     .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.9.1"),
-    .package(url: "https://github.com/mehmetbaykar/swift-mcp-toolkit.git", from: "0.3.0"),
+    .package(url: "https://github.com/mehmetbaykar/swift-mcp-toolkit.git", from: "0.4.0"),
+    .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
   ],
   targets: [
     .target(
@@ -28,6 +29,9 @@ let package = Package(
         .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
         .product(name: "UnixSignals", package: "swift-service-lifecycle"),
         .product(name: "MCPToolkit", package: "swift-mcp-toolkit"),
+        .product(name: "NIOCore", package: "swift-nio"),
+        .product(name: "NIOPosix", package: "swift-nio"),
+        .product(name: "NIOHTTP1", package: "swift-nio"),
       ],
       path: "Sources/swift-fast-mcp"
     ),

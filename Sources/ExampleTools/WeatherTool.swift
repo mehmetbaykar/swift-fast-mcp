@@ -4,6 +4,10 @@ public struct WeatherTool: MCPTool {
   public let name = "get_weather"
   public let description: String? = "Get current weather for a location"
 
+  public var annotations: Tool.Annotations {
+    .init(readOnlyHint: true)
+  }
+
   public init() {}
 
   @Schemable

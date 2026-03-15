@@ -9,6 +9,7 @@ struct FastMCPService: Service, Sendable {
   let logger: Logger
   let onStart: (@Sendable () async -> Void)?
   let onShutdown: (@Sendable () async -> Void)?
+  let initializeHook: (@Sendable (Client.Info, Client.Capabilities) async throws -> Void)?
 
   func run() async throws {
     logger.info("Starting FastMCP server")
@@ -17,7 +18,7 @@ struct FastMCPService: Service, Sendable {
       await onStart()
     }
 
-    try await server.start(transport: transport)
+    try await server.start(transport: transport, initializeHook: initializeHook)
     logger.info("FastMCP server started")
 
     await server.waitUntilCompleted()

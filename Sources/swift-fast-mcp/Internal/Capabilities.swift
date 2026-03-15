@@ -5,12 +5,14 @@ struct CapabilitiesBuilder: Sendable {
     hasTools: Bool,
     hasResources: Bool,
     hasPrompts: Bool = false,
-    hasSampling: Bool = false
+    hasCompletions: Bool = false,
+    hasLogging: Bool = false
   ) -> Server.Capabilities {
     Server.Capabilities(
+      completions: hasCompletions ? .init() : nil,
+      logging: hasLogging ? .init() : nil,
       prompts: hasPrompts ? .init(listChanged: false) : nil,
       resources: hasResources ? .init(subscribe: false, listChanged: false) : nil,
-      sampling: hasSampling ? .init() : nil,
       tools: hasTools ? .init(listChanged: false) : nil
     )
   }

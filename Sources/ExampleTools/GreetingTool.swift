@@ -4,6 +4,10 @@ public struct GreetingTool: MCPTool {
   public let name = "greet"
   public let description: String? = "Generate a greeting message"
 
+  public var annotations: Tool.Annotations {
+    .init(readOnlyHint: true, idempotentHint: true)
+  }
+
   public init() {}
 
   @Schemable
