@@ -152,7 +152,8 @@ struct BuilderTests {
     #expect(builder.tools.isEmpty)
     #expect(builder.resources.isEmpty)
     #expect(builder.prompts.isEmpty)
-    #expect(builder.samplingEnabled == false)
+    #expect(builder.completionsEnabled == false)
+    #expect(builder.loggingEnabled == false)
   }
 
   @Test
@@ -165,7 +166,8 @@ struct BuilderTests {
       .version("3.0.0")
       .addTools([GreetingTool()])
       .addPrompts([GreetingPrompt()])
-      .enableSampling()
+      .enableCompletions()
+      .enableLogging()
       .transport(.stdio)
       .logger(logger)
       .shutdownSignals([.sigterm])
@@ -176,8 +178,24 @@ struct BuilderTests {
     #expect(builder.serverVersion == "3.0.0")
     #expect(builder.tools.count == 1)
     #expect(builder.prompts.count == 1)
-    #expect(builder.samplingEnabled == true)
+    #expect(builder.completionsEnabled == true)
+    #expect(builder.loggingEnabled == true)
     #expect(builder.customLogger != nil)
+  }
+
+  @Test
+  func builderWithHTTPTransport() {
+    let builder = FastMCP.builder()
+      .name("HTTPServer")
+      .transport(.http(mode: .stateful, port: 9090))
+      .sessionTimeout(.seconds(120))
+
+    guard case .http(let mode, _, let port, _) = builder.transportConfig else {
+      Issue.record("Expected HTTP transport")
+      return
+    }
+    #expect(port == 9090)
+    #expect(mode == .stateful)
   }
 
   @Test

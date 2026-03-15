@@ -46,7 +46,7 @@ let package = Package(
   name: "$ARGUMENTS[0]",
   platforms: [.macOS(.v14)],
   dependencies: [
-    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp.git", from: "1.0.2"),
+    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp.git", from: "2.0.0"),
   ],
   targets: [
     .target(
@@ -97,7 +97,8 @@ struct $ARGUMENTS[0] {
       .addPrompts([
         // Add prompt instances here
       ])
-      .enableSampling()
+      .enableCompletions()
+      .enableLogging()
       .transport(.stdio)
       .logger(logger)
       .shutdownSignals([.sigterm, .sigint])
@@ -129,6 +130,9 @@ import FastMCP
 public struct GreetTool: MCPTool {
   public let name = "greet"
   public let description: String? = "Generate a greeting"
+  public var annotations: Tool.Annotations? {
+    Tool.Annotations(readOnlyHint: true, idempotentHint: true)
+  }
 
   public init() {}
 
@@ -201,7 +205,7 @@ For detailed patterns and API reference, load files from the `reference/` direct
 - [reference/schemable.md](reference/schemable.md) — @Schemable macro usage, enum schemas, optional params, nested types
 - [reference/builder-api.md](reference/builder-api.md) — Complete FastMCP.builder() method reference, all options and defaults
 - [reference/testing.md](reference/testing.md) — Swift Testing unit and integration tests
-- [reference/transport.md](reference/transport.md) — Transport options: .stdio, .inMemory, .custom
+- [reference/transport.md](reference/transport.md) — Transport options: .stdio, .http(), .inMemory, .custom
 - [reference/limitations.md](reference/limitations.md) — Known constraints and workarounds
 
 ## Claude Desktop Integration

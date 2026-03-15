@@ -18,25 +18,13 @@ The server cannot notify clients when tools, resources, or prompts are added/rem
 
 Resources are built with `subscribe: false`. Clients cannot subscribe to resource change notifications.
 
-## No Built-in HTTP/SSE Transport
-
-Only `.stdio` and `.inMemory` transports are built-in. For HTTP/SSE, use `.custom(transport)` with a custom `MCP.Transport` implementation.
-
 ## Silent Deduplication
 
 When duplicate tools (same name), resources (same URI), or prompts (same name) are registered, the duplicates are silently dropped without any warning or log message. The first registration wins.
 
-## Sampling is Flag-Only
+## Linux Support
 
-`enableSampling()` sets a capability flag in the MCP handshake but delegates actual sampling to the MCP SDK. There is no custom sampling surface in FastMCP.
-
-## Unreachable Error Cases
-
-`FastMCPError` defines HTTP-related cases that are not currently reachable:
-- `.portInUse(Int)` — no HTTP server to bind ports
-- `.authRequiredForHTTP` — no HTTP transport built-in
-
-These exist for potential future HTTP transport support.
+The HTTP transport works on Linux. The stdio and inMemory transports also work on Linux. The package compiles on Linux with Swift 6.2+.
 
 ## macOS 14+ Only
 

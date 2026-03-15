@@ -25,7 +25,7 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp", from: "1.0.2")
+    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp", from: "2.0.0")
 ]
 ```
 
@@ -42,7 +42,7 @@ Then add `"FastMCP"` as a dependency of your target:
 
 FastMCP pulls in these dependencies automatically:
 
-- [swift-sdk](https://github.com/modelcontextprotocol/swift-sdk) 0.11.0 -- Official MCP Swift SDK
+- [swift-sdk](https://github.com/modelcontextprotocol/swift-sdk) -- Official MCP Swift SDK
 - [swift-mcp-toolkit](https://github.com/mehmetbaykar/swift-mcp-toolkit) -- Tool/Resource/Prompt protocol abstractions
 - [swift-service-lifecycle](https://github.com/swift-server/swift-service-lifecycle) -- Graceful shutdown
 - [swift-log](https://github.com/apple/swift-log) -- Logging

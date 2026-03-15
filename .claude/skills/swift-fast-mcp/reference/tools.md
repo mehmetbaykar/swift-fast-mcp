@@ -7,6 +7,7 @@ public protocol MCPTool: Sendable {
   associatedtype Parameters: Decodable & Sendable
   var name: String { get }
   var description: String? { get }
+  var annotations: Tool.Annotations? { get }
   func call(with arguments: Parameters) async throws(ToolError) -> Content
 }
 ```
@@ -14,6 +15,7 @@ public protocol MCPTool: Sendable {
 - `Content` is a typealias for `[ToolContentItem]`
 - Return value: `[ToolContentItem(text: "...")]`
 - Typed throws: `throws(ToolError)` — only `ToolError` can be thrown
+- `annotations` has a default implementation returning `nil`
 
 ## Simple Tool
 
@@ -46,6 +48,51 @@ public struct GreetingTool: MCPTool {
   }
 }
 ```
+
+## Tool Annotations
+
+Annotations provide hints to clients about a tool's behavior:
+
+```swift
+import FastMCP
+
+public struct LookupTool: MCPTool {
+  public let name = "lookup"
+  public let description: String? = "Look up a record by ID"
+
+  public var annotations: Tool.Annotations? {
+    Tool.Annotations(
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    )
+  }
+
+  public init() {}
+
+  @Schemable
+  public struct Parameters: Sendable {
+    public let id: String
+    public init(id: String) { self.id = id }
+  }
+
+  public func call(with arguments: Parameters) async throws(ToolError) -> Content {
+    [ToolContentItem(text: "Record: \(arguments.id)")]
+  }
+}
+```
+
+Available annotation hints:
+
+| Hint | Type | Default | Meaning |
+|------|------|---------|---------|
+| `readOnlyHint` | `Bool?` | `nil` | Tool does not modify state |
+| `destructiveHint` | `Bool?` | `nil` | Tool may perform destructive operations |
+| `idempotentHint` | `Bool?` | `nil` | Calling multiple times with same args has same effect |
+| `openWorldHint` | `Bool?` | `nil` | Tool interacts with external entities |
+
+All hints are optional. Omitted hints default to `nil` (no hint provided to client).
 
 ## Tool with Enum Parameters
 
