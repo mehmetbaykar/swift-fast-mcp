@@ -6,14 +6,15 @@ struct CapabilitiesBuilder: Sendable {
     hasResources: Bool,
     hasPrompts: Bool = false,
     hasCompletions: Bool = false,
-    hasLogging: Bool = false
+    hasLogging: Bool = false,
+    listChanged: Bool = false
   ) -> Server.Capabilities {
     Server.Capabilities(
       completions: hasCompletions ? .init() : nil,
       logging: hasLogging ? .init() : nil,
-      prompts: hasPrompts ? .init(listChanged: false) : nil,
-      resources: hasResources ? .init(subscribe: false, listChanged: false) : nil,
-      tools: hasTools ? .init(listChanged: false) : nil
+      prompts: hasPrompts ? .init(listChanged: listChanged) : nil,
+      resources: hasResources ? .init(subscribe: false, listChanged: listChanged) : nil,
+      tools: hasTools ? .init(listChanged: listChanged) : nil
     )
   }
 }

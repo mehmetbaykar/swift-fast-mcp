@@ -36,6 +36,7 @@ extension FastMCP {
     var sessionTimeoutDuration: Duration
     var httpAllowedOrigins: [String]?
     var httpCustomValidators: [any HTTPRequestValidator]
+    var handle: FastMCPServerHandle?
 
     let toolDeduplicator = ToolDeduplicator()
     let resourceDeduplicator = ResourceDeduplicator()
@@ -61,6 +62,7 @@ extension FastMCP {
       self.sessionTimeoutDuration = .seconds(3600)
       self.httpAllowedOrigins = nil
       self.httpCustomValidators = []
+      self.handle = nil
     }
 
     public func name(_ name: String) -> Builder {
@@ -151,6 +153,32 @@ extension FastMCP {
       return copy
     }
 
+    /// Attach a server handle for dynamic tool/resource/prompt management at runtime.
+    ///
+    /// When a handle is provided, `listChanged` is automatically advertised in server capabilities.
+    /// Use the handle to add or remove items after the server starts — connected clients are
+    /// notified automatically.
+    ///
+    /// ```swift
+    /// let handle = FastMCPServerHandle()
+    ///
+    /// Task {
+    ///   try await FastMCP.builder()
+    ///     .name("DynamicServer")
+    ///     .addTools([WeatherTool()])
+    ///     .serverHandle(handle)
+    ///     .run()
+    /// }
+    ///
+    /// // Later:
+    /// await handle.addTool(MathTool())
+    /// ```
+    public func serverHandle(_ handle: FastMCPServerHandle) -> Builder {
+      var copy = self
+      copy.handle = handle
+      return copy
+    }
+
     public func transport(_ transport: Transport) -> Builder {
       var copy = self
       copy.transportConfig = transport
@@ -184,17 +212,24 @@ extension FastMCP {
     public func run() async throws {
       let logger = customLogger ?? Logger(label: serverName)
 
-      if tools.isEmpty && resources.isEmpty && prompts.isEmpty {
+      if tools.isEmpty && resources.isEmpty && prompts.isEmpty && handle == nil {
         logger.warning("Server starting with no tools, resources, or prompts registered")
       }
 
+      let listChanged = handle != nil
+
       let capabilities = CapabilitiesBuilder.build(
-        hasTools: !tools.isEmpty,
-        hasResources: !resources.isEmpty,
-        hasPrompts: !prompts.isEmpty,
+        hasTools: !tools.isEmpty || listChanged,
+        hasResources: !resources.isEmpty || listChanged,
+        hasPrompts: !prompts.isEmpty || listChanged,
         hasCompletions: completionsEnabled,
-        hasLogging: loggingEnabled
+        hasLogging: loggingEnabled,
+        listChanged: listChanged
       )
+
+      if let handle {
+        await handle.configure(tools: tools, resources: resources, prompts: prompts)
+      }
 
       switch transportConfig {
       case .http(let mode, let host, let port, let endpoint):
@@ -206,6 +241,7 @@ extension FastMCP {
         let resources = self.resources
         let prompts = self.prompts
         let initializeHook = self.initializeHook
+        let handle = self.handle
 
         let httpConfig = FastMCPHTTPServer.Configuration(
           host: host,
@@ -228,9 +264,21 @@ extension FastMCP {
                 instructions: serverInstructions,
                 capabilities: capabilities
               )
-              await server.register(tools: tools)
-              await server.register(resources: resources)
-              await server.register(prompts: prompts)
+
+              if let handle {
+                let currentTools = await handle.currentTools
+                let currentResources = await handle.currentResources
+                let currentPrompts = await handle.currentPrompts
+                await server.register(tools: currentTools)
+                await server.register(resources: currentResources)
+                await server.register(prompts: currentPrompts)
+                await handle.registerServer(server)
+              } else {
+                await server.register(tools: tools)
+                await server.register(resources: resources)
+                await server.register(prompts: prompts)
+              }
+
               try await server.start(transport: sessionTransport, initializeHook: initializeHook)
               return server
             },
@@ -248,9 +296,21 @@ extension FastMCP {
                 instructions: serverInstructions,
                 capabilities: capabilities
               )
-              await server.register(tools: tools)
-              await server.register(resources: resources)
-              await server.register(prompts: prompts)
+
+              if let handle {
+                let currentTools = await handle.currentTools
+                let currentResources = await handle.currentResources
+                let currentPrompts = await handle.currentPrompts
+                await server.register(tools: currentTools)
+                await server.register(resources: currentResources)
+                await server.register(prompts: currentPrompts)
+                await handle.registerServer(server)
+              } else {
+                await server.register(tools: tools)
+                await server.register(resources: resources)
+                await server.register(prompts: prompts)
+              }
+
               try await server.start(transport: sessionTransport, initializeHook: initializeHook)
               return server
             },
@@ -272,6 +332,10 @@ extension FastMCP {
         await server.register(tools: tools)
         await server.register(resources: resources)
         await server.register(prompts: prompts)
+
+        if let handle {
+          await handle.registerServer(server)
+        }
 
         let mcpTransport: MCP.Transport = createTransport(logger: logger)
 
