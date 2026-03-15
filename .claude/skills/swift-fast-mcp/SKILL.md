@@ -115,6 +115,38 @@ struct $ARGUMENTS[0] {
 
 `import FastMCP` re-exports: MCP, MCPToolkit, Logging, UnixSignals. No other imports needed for tool/resource/prompt files.
 
+## Quick Reference: Dynamic Lists (listChanged)
+
+Attach a `FastMCPServerHandle` to add or remove tools/resources/prompts at runtime. Connected clients are automatically notified via MCP `listChanged` notifications.
+
+```swift
+import FastMCP
+
+let handle = FastMCPServerHandle()
+
+Task {
+  try await FastMCP.builder()
+    .name("DynamicServer")
+    .addTools([WeatherTool()])
+    .serverHandle(handle)
+    .run()
+}
+
+// Later, from another task:
+await handle.addTool(MathTool())
+await handle.removeTool(named: "get_weather")
+await handle.addResource(ConfigResource())
+await handle.removeResource(uri: "config://app/settings")
+await handle.addPrompt(GreetingPrompt())
+await handle.removePrompt(named: "greeting")
+```
+
+When a handle is attached:
+- `listChanged: true` is advertised in server capabilities for tools, resources, and prompts
+- All three capabilities are advertised even if the initial list is empty (items can be added later)
+- Works with all transports: stdio, HTTP (stateful & stateless), inMemory, custom
+- For HTTP stateful, new sessions get the current list from the handle; existing sessions are re-registered and notified
+
 ## Deduplication Rules
 
 - **Tools**: deduplicated by `name`. First registration wins.

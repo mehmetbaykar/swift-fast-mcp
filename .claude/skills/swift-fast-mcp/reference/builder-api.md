@@ -30,6 +30,7 @@ Returns a `FastMCP.Builder` struct. All methods return a new copy (value semanti
 | `onInitialize()` | `func onInitialize(_ handler: @escaping @Sendable () async -> Void) -> Builder` | `nil` |
 | `sessionTimeout()` | `func sessionTimeout(_ timeout: Duration) -> Builder` | `nil` |
 | `httpValidation()` | `func httpValidation(_ handler: @escaping @Sendable (HTTPRequest) -> Bool) -> Builder` | `nil` |
+| `serverHandle()` | `func serverHandle(_ handle: FastMCPServerHandle) -> Builder` | `nil` |
 | `run()` | `func run() async throws` | -- |
 
 ## Value Semantics
@@ -156,6 +157,62 @@ let builder = FastMCP.builder()
   .addTools([GreetingTool()])     // 1 tool
   .addTools([MathTool()])         // 2 tools total
 ```
+
+## Dynamic Lists with ServerHandle
+
+Attach a `FastMCPServerHandle` to enable runtime tool/resource/prompt management. When a handle is attached, `listChanged: true` is automatically advertised in capabilities for all three entity types.
+
+```swift
+let handle = FastMCPServerHandle()
+
+Task {
+  try await FastMCP.builder()
+    .name("DynamicServer")
+    .addTools([WeatherTool()])
+    .serverHandle(handle)
+    .transport(.stdio)
+    .run()
+}
+
+// Later, from another task:
+await handle.addTool(MathTool())
+await handle.removeTool(named: "get_weather")
+await handle.addResource(ConfigResource())
+await handle.removeResource(uri: "config://app/settings")
+await handle.addPrompt(GreetingPrompt())
+await handle.removePrompt(named: "greeting")
+```
+
+### FastMCPServerHandle API
+
+| Method | Signature |
+|--------|-----------|
+| `addTool()` | `func addTool(_ tool: any MCPTool) async` |
+| `addTools()` | `func addTools(_ newTools: [any MCPTool]) async` |
+| `removeTool()` | `func removeTool(named name: String) async` |
+| `currentTools` | `var currentTools: [any MCPTool]` |
+| `addResource()` | `func addResource(_ resource: any MCPResource) async` |
+| `addResources()` | `func addResources(_ newResources: [any MCPResource]) async` |
+| `removeResource()` | `func removeResource(uri: String) async` |
+| `currentResources` | `var currentResources: [any MCPResource]` |
+| `addPrompt()` | `func addPrompt(_ prompt: any MCPPrompt) async` |
+| `addPrompts()` | `func addPrompts(_ newPrompts: [any MCPPrompt]) async` |
+| `removePrompt()` | `func removePrompt(named name: String) async` |
+| `currentPrompts` | `var currentPrompts: [any MCPPrompt]` |
+
+All add methods deduplicate (tools by name, resources by URI, prompts by name). Remove methods are no-ops if the item doesn't exist.
+
+When items change, the handle:
+1. Re-registers handlers on all connected servers
+2. Sends the appropriate MCP notification (`notifications/tools/list_changed`, etc.)
+3. Automatically cleans up disconnected servers
+
+### Behavior
+
+- Works with all transports (stdio, HTTP stateful/stateless, inMemory, custom)
+- For HTTP stateful: each new session gets the current list from the handle
+- Capabilities are advertised even for initially-empty lists (items can be added later)
+- The empty-server warning is suppressed when a handle is attached
 
 ## FastMCPError
 

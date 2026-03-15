@@ -1,19 +1,5 @@
 # Known Limitations
 
-## No Dynamic List Changes
-
-All capabilities are built with `listChanged: false`:
-
-```swift
-Server.Capabilities(
-  prompts: hasPrompts ? .init(listChanged: false) : nil,
-  resources: hasResources ? .init(subscribe: false, listChanged: false) : nil,
-  tools: hasTools ? .init(listChanged: false) : nil
-)
-```
-
-The server cannot notify clients when tools, resources, or prompts are added/removed at runtime. All components must be registered at startup.
-
 ## No Resource Subscriptions
 
 Resources are built with `subscribe: false`. Clients cannot subscribe to resource change notifications.
