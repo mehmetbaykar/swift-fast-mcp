@@ -5,6 +5,10 @@ import Testing
 
 @testable import FastMCP
 
+private func textContent(_ text: String) -> Tool.Content {
+  .text(text: text, annotations: nil, _meta: nil)
+}
+
 @Suite("GreetingPrompt Unit Tests")
 struct GreetingPromptUnitTests {
 
@@ -78,7 +82,7 @@ struct MathToolUnitTests {
       "b": .double(3),
     ])
     #expect(result.isError != true)
-    #expect(result.content == [.text("Result: 8.0")])
+    #expect(result.content == [textContent("Result: 8.0")])
   }
 
   @Test
@@ -89,7 +93,7 @@ struct MathToolUnitTests {
       "b": .double(3),
     ])
     #expect(result.isError != true)
-    #expect(result.content == [.text("Result: 7.0")])
+    #expect(result.content == [textContent("Result: 7.0")])
   }
 
   @Test
@@ -100,7 +104,7 @@ struct MathToolUnitTests {
       "b": .double(5),
     ])
     #expect(result.isError != true)
-    #expect(result.content == [.text("Result: 20.0")])
+    #expect(result.content == [textContent("Result: 20.0")])
   }
 
   @Test
@@ -111,7 +115,7 @@ struct MathToolUnitTests {
       "b": .double(4),
     ])
     #expect(result.isError != true)
-    #expect(result.content == [.text("Result: 5.0")])
+    #expect(result.content == [textContent("Result: 5.0")])
   }
 
   @Test
@@ -132,7 +136,7 @@ struct MathToolUnitTests {
       "b": .double(-3),
     ])
     #expect(result.isError != true)
-    #expect(result.content == [.text("Result: -8.0")])
+    #expect(result.content == [textContent("Result: -8.0")])
   }
 
   @Test
@@ -143,7 +147,7 @@ struct MathToolUnitTests {
       "b": .double(0),
     ])
     #expect(result.isError != true)
-    #expect(result.content == [.text("Result: 0.0")])
+    #expect(result.content == [textContent("Result: 0.0")])
   }
 
   @Test
@@ -154,7 +158,7 @@ struct MathToolUnitTests {
       "b": .double(2),
     ])
     #expect(result.isError != true)
-    #expect(result.content == [.text("Result: 3.5")])
+    #expect(result.content == [textContent("Result: 3.5")])
   }
 }
 
@@ -182,7 +186,7 @@ struct WeatherToolUnitTests {
     #expect(result.isError != true)
 
     switch result.content.first {
-    case .some(.text(let text)):
+    case .some(.text(text: let text, annotations: _, _meta: _)):
       #expect(text.contains("Tokyo"))
       #expect(text.contains("22°C"))
     default:
@@ -199,7 +203,7 @@ struct WeatherToolUnitTests {
     #expect(result.isError != true)
 
     switch result.content.first {
-    case .some(.text(let text)):
+    case .some(.text(text: let text, annotations: _, _meta: _)):
       #expect(text.contains("22°C"))
     default:
       Issue.record("Expected text content")
@@ -215,7 +219,7 @@ struct WeatherToolUnitTests {
     #expect(result.isError != true)
 
     switch result.content.first {
-    case .some(.text(let text)):
+    case .some(.text(text: let text, annotations: _, _meta: _)):
       #expect(text.contains("New York"))
       #expect(text.contains("72°F"))
     default:
@@ -231,7 +235,7 @@ struct WeatherToolUnitTests {
     #expect(result.isError != true)
 
     switch result.content.first {
-    case .some(.text(let text)):
+    case .some(.text(text: let text, annotations: _, _meta: _)):
       #expect(text.contains("Sunny"))
     default:
       Issue.record("Expected text content")
@@ -261,7 +265,7 @@ struct GreetingToolUnitTests {
       "name": .string("Alice")
     ])
     #expect(result.isError != true)
-    #expect(result.content == [.text("Hey Alice!")])
+    #expect(result.content == [textContent("Hey Alice!")])
   }
 
   @Test
@@ -271,7 +275,7 @@ struct GreetingToolUnitTests {
       "formal": .bool(true),
     ])
     #expect(result.isError != true)
-    #expect(result.content == [.text("Good day, Bob.")])
+    #expect(result.content == [textContent("Good day, Bob.")])
   }
 
   @Test
@@ -281,7 +285,7 @@ struct GreetingToolUnitTests {
       "formal": .bool(false),
     ])
     #expect(result.isError != true)
-    #expect(result.content == [.text("Hey Charlie!")])
+    #expect(result.content == [textContent("Hey Charlie!")])
   }
 
   @Test
@@ -290,6 +294,47 @@ struct GreetingToolUnitTests {
       "name": .string("José María")
     ])
     #expect(result.isError != true)
-    #expect(result.content == [.text("Hey José María!")])
+    #expect(result.content == [textContent("Hey José María!")])
+  }
+}
+
+@Suite("StructuredSearchTool Unit Tests")
+struct StructuredSearchToolUnitTests {
+
+  let tool = StructuredSearchTool()
+
+  @Test
+  func toolPublishesOutputSchema() {
+    let sdkTool = tool.toTool()
+    #expect(sdkTool.name == "structured_search")
+    #expect(sdkTool.outputSchema != nil)
+  }
+
+  @Test
+  func returnsContentAndStructuredContent() async throws {
+    let result = try await tool.call(arguments: [
+      "query": .string("swift")
+    ])
+
+    #expect(result.isError != true)
+    #expect(result.content == [textContent("Found 2 results for swift")])
+    #expect(
+      result.structuredContent
+        == .object([
+          "summary": .string("Found 2 results for swift"),
+          "resultCount": .int(2),
+        ])
+    )
+  }
+
+  @Test
+  func returnsErrorWithoutStructuredContent() async throws {
+    let result = try await tool.call(arguments: [
+      "query": .string("")
+    ])
+
+    #expect(result.isError == true)
+    #expect(result.content == [textContent("Query cannot be empty")])
+    #expect(result.structuredContent == nil)
   }
 }

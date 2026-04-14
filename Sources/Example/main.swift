@@ -12,13 +12,14 @@ struct ExampleServer {
       .name("FastMCP Example Server")
       .title("FastMCP Example")
       .version("2.1.0")
-      .instructions("This server provides weather, math, and greeting tools.")
+      .instructions("This server provides weather, math, greeting, and structured search tools.")
 
       // Tools - AI-callable functions
       .addTools([
         WeatherTool(),
         MathTool(),
         GreetingTool(),
+        StructuredSearchTool(),
       ])
 
       // Resources - Static or dynamic data sources

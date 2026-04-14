@@ -170,14 +170,14 @@ All builder methods return a new `Builder` (value semantics) and can be chained.
 ### Capabilities
 
 ```swift
-.addTools([WeatherTool(), MathTool()])   // Register tool implementations
+.addTools([WeatherTool(), MathTool(), StructuredSearchTool()])   // Register tool implementations
 .addResources([ConfigResource()])         // Register resource implementations
 .addPrompts([GreetingPrompt()])          // Register prompt implementations
 .enableCompletions()                      // Advertise completions capability
 .enableLogging()                          // Advertise logging capability
 ```
 
-Duplicate tools/resources/prompts (by name) are deduplicated automatically -- last one wins.
+Duplicate tools/resources/prompts are deduplicated automatically. The first registration wins.
 
 ### Transport and infrastructure
 
@@ -291,6 +291,53 @@ struct MathTool: MCPTool {
 }
 ```
 
+Tools that need typed structured output can opt into `MCPStructuredTool` while still returning
+normal human-readable content.
+
+### Structured Tool Output
+
+```swift
+struct StructuredSearchTool: MCPStructuredTool {
+    typealias Output = SearchResult
+
+    let name = "structured_search"
+    let description: String? = "Return search results with typed structured output"
+
+    @Schemable
+    struct Parameters: Sendable {
+        let query: String
+    }
+
+    @Schemable
+    struct SearchResult: Codable, Sendable {
+        let summary: String
+        let resultCount: Int
+    }
+
+    func callStructured(with arguments: Parameters) async throws(ToolError)
+        -> StructuredToolResult<SearchResult>
+    {
+        guard !arguments.query.isEmpty else {
+            throw ToolError("Query cannot be empty")
+        }
+
+        let summary = "Found 2 results for \(arguments.query)"
+        return StructuredToolResult(
+            structuredContent: SearchResult(summary: summary, resultCount: 2)
+        ) {
+            ToolContentItem(text: summary)
+        }
+    }
+}
+```
+
+Structured tools:
+
+- publish both `inputSchema` and `outputSchema` through `tools/list`
+- return `structuredContent` in `tools/call`
+- can still include normal text, image, audio, or resource content for model-friendly summaries
+- keep the existing `ToolError` behavior, with `structuredContent` omitted on errors
+
 ### Tool annotations
 
 Add `annotations` to your `MCPTool` to provide hints about tool behavior:
@@ -398,9 +445,9 @@ struct ExampleServer {
             .name("Example Server")
             .title("Example MCP Server")
             .version("2.1.0")
-            .instructions("This server provides weather and math tools.")
+            .instructions("This server provides weather, math, and structured search tools.")
 
-            .addTools([WeatherTool(), MathTool()])
+            .addTools([WeatherTool(), MathTool(), StructuredSearchTool()])
             .addResources([ConfigResource()])
             .addPrompts([GreetingPrompt()])
 
@@ -464,7 +511,7 @@ Claude generates a complete project with Package.swift, typed tools/resources/pr
 
 **Get expert help** with the subagent:
 
-Claude automatically delegates to the `swift-mcp-expert` agent when you ask about MCPTool, MCPResource, MCPPrompt implementations, the builder API, `@Schemable` types, or testing patterns. You can also invoke it explicitly:
+Claude automatically delegates to the `swift-mcp-expert` agent when you ask about `MCPTool`, `MCPStructuredTool`, `MCPResource`, `MCPPrompt` implementations, the builder API, `@Schemable` types, or testing patterns. You can also invoke it explicitly:
 
 ```
 Use the swift-mcp-expert to help me build a weather tool

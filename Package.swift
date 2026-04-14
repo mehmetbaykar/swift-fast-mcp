@@ -16,9 +16,9 @@ let package = Package(
     ),
   ],
   dependencies: [
-    .package(url: "https://github.com/modelcontextprotocol/swift-sdk", from: "0.11.0"),
+    .package(url: "https://github.com/modelcontextprotocol/swift-sdk", from: "0.12.0"),
     .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.9.1"),
-    .package(url: "https://github.com/mehmetbaykar/swift-mcp-toolkit.git", from: "0.4.0"),
+    .package(url: "https://github.com/mehmetbaykar/swift-mcp-toolkit.git", from: "0.5.0"),
     .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
   ],
   targets: [
