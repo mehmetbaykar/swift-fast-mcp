@@ -46,7 +46,7 @@ When invoked:
 - Resource content can be a string literal (auto-converted)
 - Prompt messages use `.user("...")` and `.assistant("...")`
 - Use Swift Testing (`@Suite`, `@Test`, `#expect`), never XCTest
-- Package.swift depends only on `swift-fast-mcp` (from: "2.1.0"), Swift 6.2+, macOS 14+
+- Package.swift depends only on `swift-fast-mcp` (from: "2.2.0"), Swift 6.2+, macOS 14+
 
 ## Project Structure Convention
 

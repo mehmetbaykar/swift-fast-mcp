@@ -25,7 +25,7 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp", from: "2.1.0")
+    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp", from: "2.2.0")
 ]
 ```
 
@@ -161,7 +161,7 @@ All builder methods return a new `Builder` (value semantics) and can be chained.
 
 ```swift
 .name("My Server")               // Server name (default: process name)
-.version("2.1.0")                // Server version (default: "1.0.0")
+.version("2.2.0")                // Server version (default: "1.0.0")
 .title("My Display Name")        // Human-readable display name for UIs
 .instructions("Use this server to...") // Instructions for LLM clients
 .icons([...])                     // Server icons for display in UIs
@@ -444,7 +444,7 @@ struct ExampleServer {
         try await FastMCP.builder()
             .name("Example Server")
             .title("Example MCP Server")
-            .version("2.1.0")
+            .version("2.2.0")
             .instructions("This server provides weather, math, and structured search tools.")
 
             .addTools([WeatherTool(), MathTool(), StructuredSearchTool()])
