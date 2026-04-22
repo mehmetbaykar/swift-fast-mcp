@@ -1,12 +1,27 @@
 import ExampleTools
+import FastMCPAIBridge
 import MCP
-import MCPToolkit
+import SwiftAIHub
 import Testing
 
 @testable import FastMCP
 
-private func textContent(_ text: String) -> Tool.Content {
-  .text(text: text, annotations: nil, _meta: nil)
+// Round-trips a tool through HubToolAdapter, returning the GeneratedContent the
+// bridge would emit to a connected MCP client.
+private func execute(
+  _ tool: any SwiftAIHub.Tool,
+  arguments: [String: Value]
+) async throws -> GeneratedContent {
+  let adapter = HubToolAdapter(tools: [tool])
+  return try await adapter.execute(name: tool.name, arguments: .object(arguments))
+}
+
+private func expectString(_ content: GeneratedContent, _ expected: String) {
+  guard case .string(let text) = content.kind else {
+    Issue.record("Expected string GeneratedContent, got \(content.kind)")
+    return
+  }
+  #expect(text == expected)
 }
 
 @Suite("GreetingPrompt Unit Tests")
@@ -22,38 +37,31 @@ struct GreetingPromptUnitTests {
   @Test
   func promptHasDescription() {
     #expect(prompt.description != nil)
-    #expect(prompt.description!.contains("greeting"))
+    #expect(prompt.description?.contains("greeting") == true)
   }
 
   @Test
-  func promptHasArguments() {
-    let sdkPrompt = prompt.toPrompt()
-    #expect(sdkPrompt.arguments != nil)
-    #expect(sdkPrompt.arguments!.count == 2)
-    #expect(sdkPrompt.arguments!.contains { $0.name == "name" })
+  func promptExposesArgumentSpecs() {
+    #expect(prompt.arguments.count == 2)
+    #expect(prompt.arguments.contains { $0.name == "name" })
+    #expect(prompt.arguments.contains { $0.name == "formal" })
   }
 
   @Test
   func returnsInformalMessagesWithName() async throws {
-    let messages = try await prompt.getMessages(
-      arguments: GreetingPrompt.Arguments(name: "Alice", formal: nil)
-    )
+    let messages = try await prompt.getMessages(arguments: ["name": "Alice"])
     #expect(messages.count == 2)
   }
 
   @Test
   func returnsFormalMessagesWhenRequested() async throws {
-    let messages = try await prompt.getMessages(
-      arguments: GreetingPrompt.Arguments(name: "Bob", formal: true)
-    )
+    let messages = try await prompt.getMessages(arguments: ["name": "Bob", "formal": "true"])
     #expect(messages.count == 2)
   }
 
   @Test
   func returnsInformalMessagesWhenFormalIsFalse() async throws {
-    let messages = try await prompt.getMessages(
-      arguments: GreetingPrompt.Arguments(name: "Charlie", formal: false)
-    )
+    let messages = try await prompt.getMessages(arguments: ["name": "Charlie", "formal": "false"])
     #expect(messages.count == 2)
   }
 }
@@ -70,95 +78,80 @@ struct MathToolUnitTests {
 
   @Test
   func toolHasDescription() {
-    #expect(tool.description != nil)
-    #expect(tool.description!.contains("math"))
+    #expect(tool.description.contains("math"))
   }
 
   @Test
   func addOperationReturnsCorrectResult() async throws {
-    let result = try await tool.call(arguments: [
-      "operation": .string("add"),
-      "a": .double(5),
-      "b": .double(3),
-    ])
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Result: 8.0")])
+    let content = try await execute(
+      tool,
+      arguments: ["operation": .string("add"), "a": .double(5), "b": .double(3)]
+    )
+    expectString(content, "Result: 8.0")
   }
 
   @Test
   func subtractOperationReturnsCorrectResult() async throws {
-    let result = try await tool.call(arguments: [
-      "operation": .string("subtract"),
-      "a": .double(10),
-      "b": .double(3),
-    ])
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Result: 7.0")])
+    let content = try await execute(
+      tool,
+      arguments: ["operation": .string("subtract"), "a": .double(10), "b": .double(3)]
+    )
+    expectString(content, "Result: 7.0")
   }
 
   @Test
   func multiplyOperationReturnsCorrectResult() async throws {
-    let result = try await tool.call(arguments: [
-      "operation": .string("multiply"),
-      "a": .double(4),
-      "b": .double(5),
-    ])
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Result: 20.0")])
+    let content = try await execute(
+      tool,
+      arguments: ["operation": .string("multiply"), "a": .double(4), "b": .double(5)]
+    )
+    expectString(content, "Result: 20.0")
   }
 
   @Test
   func divideOperationReturnsCorrectResult() async throws {
-    let result = try await tool.call(arguments: [
-      "operation": .string("divide"),
-      "a": .double(20),
-      "b": .double(4),
-    ])
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Result: 5.0")])
+    let content = try await execute(
+      tool,
+      arguments: ["operation": .string("divide"), "a": .double(20), "b": .double(4)]
+    )
+    expectString(content, "Result: 5.0")
   }
 
   @Test
-  func divisionByZeroReturnsError() async throws {
-    let result = try await tool.call(arguments: [
-      "operation": .string("divide"),
-      "a": .double(10),
-      "b": .double(0),
-    ])
-    #expect(result.isError == true)
+  func divisionByZeroThrows() async throws {
+    await #expect(throws: HubBridgeError.self) {
+      _ = try await execute(
+        tool,
+        arguments: ["operation": .string("divide"), "a": .double(10), "b": .double(0)]
+      )
+    }
   }
 
   @Test
   func additionWithNegativeNumbers() async throws {
-    let result = try await tool.call(arguments: [
-      "operation": .string("add"),
-      "a": .double(-5),
-      "b": .double(-3),
-    ])
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Result: -8.0")])
+    let content = try await execute(
+      tool,
+      arguments: ["operation": .string("add"), "a": .double(-5), "b": .double(-3)]
+    )
+    expectString(content, "Result: -8.0")
   }
 
   @Test
   func multiplicationByZero() async throws {
-    let result = try await tool.call(arguments: [
-      "operation": .string("multiply"),
-      "a": .double(100),
-      "b": .double(0),
-    ])
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Result: 0.0")])
+    let content = try await execute(
+      tool,
+      arguments: ["operation": .string("multiply"), "a": .double(100), "b": .double(0)]
+    )
+    expectString(content, "Result: 0.0")
   }
 
   @Test
   func divisionWithDecimalResult() async throws {
-    let result = try await tool.call(arguments: [
-      "operation": .string("divide"),
-      "a": .double(7),
-      "b": .double(2),
-    ])
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Result: 3.5")])
+    let content = try await execute(
+      tool,
+      arguments: ["operation": .string("divide"), "a": .double(7), "b": .double(2)]
+    )
+    expectString(content, "Result: 3.5")
   }
 }
 
@@ -174,72 +167,55 @@ struct WeatherToolUnitTests {
 
   @Test
   func toolHasDescription() {
-    #expect(tool.description != nil)
-    #expect(tool.description!.contains("weather"))
+    #expect(tool.description.contains("weather"))
   }
 
   @Test
   func returnsCelsiusByDefault() async throws {
-    let result = try await tool.call(arguments: [
-      "location": .string("Tokyo")
-    ])
-    #expect(result.isError != true)
-
-    switch result.content.first {
-    case .some(.text(text: let text, annotations: _, _meta: _)):
-      #expect(text.contains("Tokyo"))
-      #expect(text.contains("22°C"))
-    default:
-      Issue.record("Expected text content")
+    let content = try await execute(tool, arguments: ["location": .string("Tokyo")])
+    guard case .string(let text) = content.kind else {
+      Issue.record("Expected string content")
+      return
     }
+    #expect(text.contains("Tokyo"))
+    #expect(text.contains("22°C"))
   }
 
   @Test
   func returnsCelsiusWhenExplicitlyRequested() async throws {
-    let result = try await tool.call(arguments: [
-      "location": .string("Paris"),
-      "unit": .string("celsius"),
-    ])
-    #expect(result.isError != true)
-
-    switch result.content.first {
-    case .some(.text(text: let text, annotations: _, _meta: _)):
-      #expect(text.contains("22°C"))
-    default:
-      Issue.record("Expected text content")
+    let content = try await execute(
+      tool,
+      arguments: ["location": .string("Paris"), "unit": .string("celsius")]
+    )
+    guard case .string(let text) = content.kind else {
+      Issue.record("Expected string content")
+      return
     }
+    #expect(text.contains("22°C"))
   }
 
   @Test
   func returnsFahrenheitWhenRequested() async throws {
-    let result = try await tool.call(arguments: [
-      "location": .string("New York"),
-      "unit": .string("fahrenheit"),
-    ])
-    #expect(result.isError != true)
-
-    switch result.content.first {
-    case .some(.text(text: let text, annotations: _, _meta: _)):
-      #expect(text.contains("New York"))
-      #expect(text.contains("72°F"))
-    default:
-      Issue.record("Expected text content")
+    let content = try await execute(
+      tool,
+      arguments: ["location": .string("New York"), "unit": .string("fahrenheit")]
+    )
+    guard case .string(let text) = content.kind else {
+      Issue.record("Expected string content")
+      return
     }
+    #expect(text.contains("New York"))
+    #expect(text.contains("72°F"))
   }
 
   @Test
   func includesWeatherCondition() async throws {
-    let result = try await tool.call(arguments: [
-      "location": .string("London")
-    ])
-    #expect(result.isError != true)
-
-    switch result.content.first {
-    case .some(.text(text: let text, annotations: _, _meta: _)):
-      #expect(text.contains("Sunny"))
-    default:
-      Issue.record("Expected text content")
+    let content = try await execute(tool, arguments: ["location": .string("London")])
+    guard case .string(let text) = content.kind else {
+      Issue.record("Expected string content")
+      return
     }
+    #expect(text.contains("Sunny"))
   }
 }
 
@@ -255,46 +231,37 @@ struct GreetingToolUnitTests {
 
   @Test
   func toolHasDescription() {
-    #expect(tool.description != nil)
-    #expect(tool.description!.contains("greeting"))
+    #expect(tool.description.contains("greeting"))
   }
 
   @Test
   func returnsInformalGreetingByDefault() async throws {
-    let result = try await tool.call(arguments: [
-      "name": .string("Alice")
-    ])
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Hey Alice!")])
+    let content = try await execute(tool, arguments: ["name": .string("Alice")])
+    expectString(content, "Hey Alice!")
   }
 
   @Test
   func returnsFormalGreetingWhenTrue() async throws {
-    let result = try await tool.call(arguments: [
-      "name": .string("Bob"),
-      "formal": .bool(true),
-    ])
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Good day, Bob.")])
+    let content = try await execute(
+      tool,
+      arguments: ["name": .string("Bob"), "formal": .bool(true)]
+    )
+    expectString(content, "Good day, Bob.")
   }
 
   @Test
   func returnsInformalGreetingWhenFormalIsFalse() async throws {
-    let result = try await tool.call(arguments: [
-      "name": .string("Charlie"),
-      "formal": .bool(false),
-    ])
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Hey Charlie!")])
+    let content = try await execute(
+      tool,
+      arguments: ["name": .string("Charlie"), "formal": .bool(false)]
+    )
+    expectString(content, "Hey Charlie!")
   }
 
   @Test
   func handlesSpecialCharactersInName() async throws {
-    let result = try await tool.call(arguments: [
-      "name": .string("José María")
-    ])
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Hey José María!")])
+    let content = try await execute(tool, arguments: ["name": .string("José María")])
+    expectString(content, "Hey José María!")
   }
 }
 
@@ -304,37 +271,33 @@ struct StructuredSearchToolUnitTests {
   let tool = StructuredSearchTool()
 
   @Test
-  func toolPublishesOutputSchema() {
-    let sdkTool = tool.toTool()
-    #expect(sdkTool.name == "structured_search")
-    #expect(sdkTool.outputSchema != nil)
+  func bridgePublishesToolDescription() {
+    let mapped = HubToolMapper.mapTool(tool)
+    #expect(mapped.name == "structured_search")
+    // HubToolMapper currently advertises a free-form object schema until the
+    // generation-schema → JSON-schema work lands (task #9).
+    guard case .object(let fields) = mapped.inputSchema else {
+      Issue.record("Expected object input schema")
+      return
+    }
+    #expect(fields["type"] == .string("object"))
   }
 
   @Test
-  func returnsContentAndStructuredContent() async throws {
-    let result = try await tool.call(arguments: [
-      "query": .string("swift")
-    ])
-
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Found 2 results for swift")])
-    #expect(
-      result.structuredContent
-        == .object([
-          "summary": .string("Found 2 results for swift"),
-          "resultCount": .int(2),
-        ])
-    )
+  func returnsStructuredContent() async throws {
+    let content = try await execute(tool, arguments: ["query": .string("swift")])
+    guard case .structure(let properties, _) = content.kind else {
+      Issue.record("Expected structured GeneratedContent, got \(content.kind)")
+      return
+    }
+    #expect(properties["summary"]?.jsonString.contains("Found 2 results for swift") == true)
+    #expect(properties["resultCount"]?.jsonString == "2")
   }
 
   @Test
-  func returnsErrorWithoutStructuredContent() async throws {
-    let result = try await tool.call(arguments: [
-      "query": .string("")
-    ])
-
-    #expect(result.isError == true)
-    #expect(result.content == [textContent("Query cannot be empty")])
-    #expect(result.structuredContent == nil)
+  func emptyQueryThrowsThroughBridge() async throws {
+    await #expect(throws: HubBridgeError.self) {
+      _ = try await execute(tool, arguments: ["query": .string("")])
+    }
   }
 }
