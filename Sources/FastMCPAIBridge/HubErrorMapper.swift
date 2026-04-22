@@ -16,6 +16,7 @@ public enum HubErrorMapper {
     default:
       message = "\(error)"
     }
-    return CallTool.Result(content: [.text(message)], isError: true)
+    return CallTool.Result(
+      content: [.text(text: message, annotations: nil, _meta: nil)], isError: true)
   }
 }
