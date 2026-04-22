@@ -1,5 +1,6 @@
 // swift-tools-version: 6.2
 
+import CompilerPluginSupport
 import PackageDescription
 
 let package = Package(
@@ -16,9 +17,19 @@ let package = Package(
     .package(url: "https://github.com/modelcontextprotocol/swift-sdk", from: "0.12.0"),
     .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.9.1"),
     .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
+    .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
     .package(path: "../swift-ai-hub"),
   ],
   targets: [
+    .macro(
+      name: "FastMCPMacros",
+      dependencies: [
+        .product(name: "SwiftSyntax", package: "swift-syntax"),
+        .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+        .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+        .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+      ]
+    ),
     .target(
       name: "FastMCPAIBridge",
       dependencies: [
@@ -31,6 +42,7 @@ let package = Package(
       name: "FastMCP",
       dependencies: [
         "FastMCPAIBridge",
+        "FastMCPMacros",
         .product(name: "MCP", package: "swift-sdk"),
         .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
         .product(name: "UnixSignals", package: "swift-service-lifecycle"),
