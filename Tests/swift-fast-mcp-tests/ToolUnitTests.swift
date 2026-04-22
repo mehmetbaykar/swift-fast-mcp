@@ -73,7 +73,7 @@ struct MathToolUnitTests {
 
   @Test
   func toolHasCorrectName() {
-    #expect(tool.name == "calculate")
+    #expect(tool.name == "math")
   }
 
   @Test
@@ -162,7 +162,7 @@ struct WeatherToolUnitTests {
 
   @Test
   func toolHasCorrectName() {
-    #expect(tool.name == "get_weather")
+    #expect(tool.name == "weather")
   }
 
   @Test
@@ -226,7 +226,7 @@ struct GreetingToolUnitTests {
 
   @Test
   func toolHasCorrectName() {
-    #expect(tool.name == "greet")
+    #expect(tool.name == "greeting")
   }
 
   @Test
@@ -236,7 +236,7 @@ struct GreetingToolUnitTests {
 
   @Test
   func returnsInformalGreetingByDefault() async throws {
-    let content = try await execute(tool, arguments: ["name": .string("Alice")])
+    let content = try await execute(tool, arguments: ["who": .string("Alice")])
     expectString(content, "Hey Alice!")
   }
 
@@ -244,7 +244,7 @@ struct GreetingToolUnitTests {
   func returnsFormalGreetingWhenTrue() async throws {
     let content = try await execute(
       tool,
-      arguments: ["name": .string("Bob"), "formal": .bool(true)]
+      arguments: ["who": .string("Bob"), "formal": .bool(true)]
     )
     expectString(content, "Good day, Bob.")
   }
@@ -253,14 +253,14 @@ struct GreetingToolUnitTests {
   func returnsInformalGreetingWhenFormalIsFalse() async throws {
     let content = try await execute(
       tool,
-      arguments: ["name": .string("Charlie"), "formal": .bool(false)]
+      arguments: ["who": .string("Charlie"), "formal": .bool(false)]
     )
     expectString(content, "Hey Charlie!")
   }
 
   @Test
   func handlesSpecialCharactersInName() async throws {
-    let content = try await execute(tool, arguments: ["name": .string("José María")])
+    let content = try await execute(tool, arguments: ["who": .string("José María")])
     expectString(content, "Hey José María!")
   }
 }
@@ -273,7 +273,7 @@ struct StructuredSearchToolUnitTests {
   @Test
   func bridgePublishesToolDescription() {
     let mapped = HubToolMapper.mapTool(tool)
-    #expect(mapped.name == "structured_search")
+    #expect(mapped.name == "structuredSearch")
     // HubToolMapper currently advertises a free-form object schema until the
     // generation-schema → JSON-schema work lands (task #9).
     guard case .object(let fields) = mapped.inputSchema else {

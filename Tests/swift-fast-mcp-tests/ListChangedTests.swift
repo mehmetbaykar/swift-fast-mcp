@@ -134,7 +134,7 @@ struct ServerHandleToolTests {
     let handle = FastMCPServerHandle()
     await handle.seed(tools: [WeatherTool()])
     let names = await handle.currentToolNames()
-    #expect(names == ["get_weather"])
+    #expect(names == ["weather"])
   }
 
   @Test("addTool appends a tool")
@@ -142,7 +142,7 @@ struct ServerHandleToolTests {
     let handle = FastMCPServerHandle()
     await handle.addTool(WeatherTool())
     let names = await handle.currentToolNames()
-    #expect(names == ["get_weather"])
+    #expect(names == ["weather"])
   }
 
   @Test("addTools appends multiple tools")
@@ -150,7 +150,7 @@ struct ServerHandleToolTests {
     let handle = FastMCPServerHandle()
     await handle.addTools([WeatherTool(), MathTool()])
     let names = await handle.currentToolNames()
-    #expect(Set(names) == ["get_weather", "calculate"])
+    #expect(Set(names) == ["weather", "math"])
   }
 
   @Test("addTool deduplicates by name")
@@ -166,9 +166,9 @@ struct ServerHandleToolTests {
   func removeToolByName() async {
     let handle = FastMCPServerHandle()
     await handle.addTools([WeatherTool(), MathTool()])
-    await handle.removeTool(named: "get_weather")
+    await handle.removeTool(named: "weather")
     let names = await handle.currentToolNames()
-    #expect(names == ["calculate"])
+    #expect(names == ["math"])
   }
 
   @Test("removeTool is no-op for unknown name")
@@ -177,17 +177,17 @@ struct ServerHandleToolTests {
     await handle.addTool(WeatherTool())
     await handle.removeTool(named: "nonexistent")
     let names = await handle.currentToolNames()
-    #expect(names == ["get_weather"])
+    #expect(names == ["weather"])
   }
 
   @Test("removeTool then addTool works correctly")
   func removeAndReAdd() async {
     let handle = FastMCPServerHandle()
     await handle.addTool(WeatherTool())
-    await handle.removeTool(named: "get_weather")
+    await handle.removeTool(named: "weather")
     await handle.addTool(MathTool())
     let names = await handle.currentToolNames()
-    #expect(names == ["calculate"])
+    #expect(names == ["math"])
   }
 }
 
@@ -339,7 +339,7 @@ struct ServerHandleIntegrationTests {
     await handle.addTool(MathTool())
 
     let names = await handle.currentToolNames()
-    #expect(Set(names) == ["get_weather", "calculate"])
+    #expect(Set(names) == ["weather", "math"])
   }
 
   @Test("removeTool re-registers handler on connected server")
@@ -355,10 +355,10 @@ struct ServerHandleIntegrationTests {
     await handle.seed(tools: [WeatherTool(), MathTool()])
     await handle.registerServer(server)
 
-    await handle.removeTool(named: "get_weather")
+    await handle.removeTool(named: "weather")
 
     let names = await handle.currentToolNames()
-    #expect(names == ["calculate"])
+    #expect(names == ["math"])
   }
 
   @Test("addResource re-registers handler on connected server")
@@ -428,7 +428,7 @@ struct ServerHandleIntegrationTests {
     let resources = await handle.currentResources
     let prompts = await handle.currentPrompts
 
-    #expect(names == ["calculate"])
+    #expect(names == ["math"])
     #expect(resources.isEmpty)
     #expect(prompts.isEmpty)
   }

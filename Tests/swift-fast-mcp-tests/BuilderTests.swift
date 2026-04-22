@@ -79,8 +79,8 @@ struct BuilderTests {
     let builder = FastMCP.builder().addTools([WeatherTool(), MathTool()])
     #expect(builder.hubTools.count == 2)
     let toolNames = builder.hubTools.map { $0.name }
-    #expect(toolNames.contains("get_weather"))
-    #expect(toolNames.contains("calculate"))
+    #expect(toolNames.contains("weather"))
+    #expect(toolNames.contains("math"))
   }
 
   @Test
