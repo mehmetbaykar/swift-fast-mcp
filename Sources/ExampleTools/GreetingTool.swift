@@ -11,23 +11,19 @@ public struct Person {
 
 @Tool("Generate a greeting for a person")
 public struct GreetingTool {
-  @Parameter("The person to greet")
-  public var person: Person
+  @Generable
+  public struct Arguments {
+    @Parameter("The person to greet")
+    public var person: Person
 
-  @Parameter("Tone to use")
-  public var tone: GreetingTone = .casual
-
-  public init(
-    person: Person = Person(firstName: "", lastName: nil),
-    tone: GreetingTone = .casual
-  ) {
-    self.person = person
-    self.tone = tone
+    @Parameter("Tone to use")
+    public var tone: GreetingTone
   }
 
-  public func execute() async throws -> String {
-    let name = [person.firstName, person.lastName].compactMap { $0 }.joined(separator: " ")
-    switch tone {
+  public func execute(_ arguments: Arguments) async throws -> String {
+    let name = [arguments.person.firstName, arguments.person.lastName].compactMap { $0 }.joined(
+      separator: " ")
+    switch arguments.tone {
     case .casual: return "Hey \(name)!"
     case .formal: return "Good day, \(name)."
     case .professional: return "Hello \(name), how can I help you today?"

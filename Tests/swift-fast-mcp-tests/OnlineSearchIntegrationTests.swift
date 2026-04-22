@@ -28,11 +28,14 @@ import Testing
 
 @Tool("Return the current date/time in an IANA timezone.")
 private struct GetCurrentDateTool {
-  @Parameter("IANA tz, e.g. 'Europe/Berlin'. Defaults to server local.")
-  var timezone: String? = nil
+  @Generable
+  struct Arguments {
+    @Parameter("IANA tz, e.g. 'Europe/Berlin'.")
+    var timezone: String
+  }
 
-  func execute() async throws -> String {
-    let tz = timezone.flatMap(TimeZone.init(identifier:)) ?? .current
+  func execute(_ arguments: Arguments) async throws -> String {
+    let tz = TimeZone(identifier: arguments.timezone) ?? .current
     let fmt = ISO8601DateFormatter()
     fmt.timeZone = tz
     return fmt.string(from: .now)
@@ -41,24 +44,26 @@ private struct GetCurrentDateTool {
 
 @Tool("Search the web for a query. Returns a concise summary.")
 private struct OnlineSearchTool {
-  // DI — ignored by the macro, injected at construction.
+  // DI — init-injected dependency, not part of Arguments.
   let llm: any LanguageModel
 
-  @Parameter("The user's query")
-  var query: String
-
-  init(llm: any LanguageModel, query: String = "") {
-    self.llm = llm
-    self.query = query
+  @Generable
+  struct Arguments {
+    @Parameter("The user's query")
+    var query: String
   }
 
-  func execute() async throws -> String {
+  init(llm: any LanguageModel) {
+    self.llm = llm
+  }
+
+  func execute(_ arguments: Arguments) async throws -> String {
     let session = LanguageModelSession(
       model: llm,
       tools: [GetCurrentDateTool()],
       instructions: "Always include today's date before the answer."
     )
-    let response = try await session.respond(to: "Search the web for: \(query)")
+    let response = try await session.respond(to: "Search the web for: \(arguments.query)")
     return response.content
   }
 }
@@ -300,9 +305,10 @@ struct OnlineSearchIntegrationTests {
       session: mockSession
     )
 
-    var tool = OnlineSearchTool(llm: openAI)
-    tool.query = "swift concurrency"
-    let response = try await tool.execute()
+    let tool = OnlineSearchTool(llm: openAI)
+    let response = try await tool.execute(
+      OnlineSearchTool.Arguments(query: "swift concurrency")
+    )
 
     #expect(!response.isEmpty, "tool returned empty response")
     #expect(response.contains("2026"), "final response should echo mocked date: \(response)")
