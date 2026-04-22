@@ -1,3 +1,4 @@
+import Foundation
 import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
@@ -32,7 +33,7 @@ public struct MCPResourceMacro: MemberMacro, ExtensionMacro {
         "public var description: String? { \(raw: literalString(description)) }"
       )
     }
-    if let mimeType = extractLabeledString(from: node, label: "mimeType") {
+    if let mimeType = extractMimeType(from: node) {
       members.append("public var mimeType: String? { \(raw: literalString(mimeType)) }")
     }
 
@@ -88,6 +89,45 @@ public struct MCPResourceMacro: MemberMacro, ExtensionMacro {
       }
     }
     return nil
+  }
+
+  /// Resolves the `mimeType:` argument. Accepts either `.caseName` shorthand
+  /// or `.other("…")` enum literals from `MCPResourceMimeType`.
+  private static func extractMimeType(from node: AttributeSyntax) -> String? {
+    guard let list = node.arguments?.as(LabeledExprListSyntax.self) else { return nil }
+    for arg in list where arg.label?.text == "mimeType" {
+      if let member = arg.expression.as(MemberAccessExprSyntax.self),
+        member.base == nil
+      {
+        return mapMimeCase(member.declName.baseName.text)
+      }
+      if let call = arg.expression.as(FunctionCallExprSyntax.self),
+        let member = call.calledExpression.as(MemberAccessExprSyntax.self),
+        member.base == nil,
+        member.declName.baseName.text == "other",
+        let firstArg = call.arguments.first,
+        let literal = firstArg.expression.as(StringLiteralExprSyntax.self),
+        let segment = literal.segments.first?.as(StringSegmentSyntax.self)
+      {
+        return segment.content.text
+      }
+    }
+    return nil
+  }
+
+  private static func mapMimeCase(_ name: String) -> String? {
+    switch name {
+    case "applicationJSON": return "application/json"
+    case "applicationXML": return "application/xml"
+    case "applicationOctetStream": return "application/octet-stream"
+    case "textPlain": return "text/plain"
+    case "textMarkdown": return "text/markdown"
+    case "textHTML": return "text/html"
+    case "textCSV": return "text/csv"
+    case "imagePNG": return "image/png"
+    case "imageJPEG": return "image/jpeg"
+    default: return nil
+    }
   }
 
   private static func hasInit(in declaration: some DeclGroupSyntax) -> Bool {

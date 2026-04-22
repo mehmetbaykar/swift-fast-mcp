@@ -4,7 +4,7 @@ import FastMCP
   "config://app/settings",
   name: "App Settings",
   description: "Application configuration and feature flags",
-  mimeType: "application/json"
+  mimeType: .applicationJSON
 )
 public struct ConfigResource {
   @ResourceContentBuilder
@@ -26,7 +26,7 @@ public struct ConfigResource {
   "system://info",
   name: "System Information",
   description: "Current system information",
-  mimeType: "text/plain"
+  mimeType: .textPlain
 )
 public struct SystemInfoResource {
   @ResourceContentBuilder

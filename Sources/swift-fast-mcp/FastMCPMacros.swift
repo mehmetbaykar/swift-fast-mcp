@@ -24,5 +24,5 @@ public macro MCPResource(
   _ uri: String,
   name: String? = nil,
   description: String? = nil,
-  mimeType: String? = nil
+  mimeType: MCPResourceMimeType? = nil
 ) = #externalMacro(module: "FastMCPMacros", type: "MCPResourceMacro")

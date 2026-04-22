@@ -103,7 +103,7 @@ struct MCPPromptMacroTests {
   "test://sample",
   name: "Sample",
   description: "Sample resource used by macro tests",
-  mimeType: "text/plain"
+  mimeType: .textPlain
 )
 struct SampleResource {
   @ResourceContentBuilder
