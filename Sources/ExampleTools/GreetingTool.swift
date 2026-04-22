@@ -12,10 +12,18 @@ public struct Person {
 @Tool("Generate a greeting for a person")
 public struct GreetingTool {
   @Parameter("The person to greet")
-  public var person: Person = Person(firstName: "", lastName: nil)
+  public var person: Person
 
   @Parameter("Tone to use")
   public var tone: GreetingTone = .casual
+
+  public init(
+    person: Person = Person(firstName: "", lastName: nil),
+    tone: GreetingTone = .casual
+  ) {
+    self.person = person
+    self.tone = tone
+  }
 
   public func execute() async throws -> String {
     let name = [person.firstName, person.lastName].compactMap { $0 }.joined(separator: " ")
