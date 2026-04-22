@@ -1,37 +1,32 @@
 import FastMCP
 
-public struct MathTool: SwiftAIHub.Tool {
-  public let name = "calculate"
-  public let description = "Perform basic math operations"
-
+@Tool("Perform basic math operations")
+public struct MathTool {
   public struct CalculationError: Error, CustomStringConvertible {
     public let description: String
     public init(_ description: String) { self.description = description }
   }
 
-  @Generable
-  public struct Arguments: Sendable {
-    @Guide(description: "Operation: add, subtract, multiply, divide")
-    public let operation: String
-    @Guide(description: "First operand")
-    public let a: Double
-    @Guide(description: "Second operand")
-    public let b: Double
-  }
+  @Parameter("Operation", oneOf: ["add", "subtract", "multiply", "divide"])
+  public var operation: String
 
-  public init() {}
+  @Parameter("First operand")
+  public var a: Double
 
-  public func call(arguments: Arguments) async throws -> String {
+  @Parameter("Second operand")
+  public var b: Double
+
+  public func execute() async throws -> String {
     let result: Double
-    switch arguments.operation {
-    case "add": result = arguments.a + arguments.b
-    case "subtract": result = arguments.a - arguments.b
-    case "multiply": result = arguments.a * arguments.b
+    switch operation {
+    case "add": result = a + b
+    case "subtract": result = a - b
+    case "multiply": result = a * b
     case "divide":
-      guard arguments.b != 0 else { throw CalculationError("Division by zero") }
-      result = arguments.a / arguments.b
+      guard b != 0 else { throw CalculationError("Division by zero") }
+      result = a / b
     default:
-      throw CalculationError("Unknown operation: \(arguments.operation)")
+      throw CalculationError("Unknown operation: \(operation)")
     }
     return "Result: \(result)"
   }

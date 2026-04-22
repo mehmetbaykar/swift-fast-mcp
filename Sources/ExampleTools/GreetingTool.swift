@@ -1,20 +1,14 @@
 import FastMCP
 
-public struct GreetingTool: SwiftAIHub.Tool {
-  public let name = "greet"
-  public let description = "Generate a greeting message"
+@Tool("Generate a greeting message")
+public struct GreetingTool {
+  @Parameter("Who to greet")
+  public var who: String
 
-  @Generable
-  public struct Arguments: Sendable {
-    @Guide(description: "Who to greet")
-    public let name: String
-    @Guide(description: "Use formal tone")
-    public let formal: Bool?
-  }
+  @Parameter("Use formal tone")
+  public var formal: Bool? = nil
 
-  public init() {}
-
-  public func call(arguments: Arguments) async throws -> String {
-    arguments.formal == true ? "Good day, \(arguments.name)." : "Hey \(arguments.name)!"
+  public func execute() async throws -> String {
+    formal == true ? "Good day, \(who)." : "Hey \(who)!"
   }
 }
