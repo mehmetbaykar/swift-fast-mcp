@@ -177,20 +177,6 @@ struct WeatherToolUnitTests {
   }
 
   @Test
-  func returnsCelsiusByDefault() async throws {
-    let content = try await execute(
-      tool,
-      arguments: ["coordinate": coordinateValue(latitude: 35.68, longitude: 139.76)]
-    )
-    guard case .string(let text) = content.kind else {
-      Issue.record("Expected string content")
-      return
-    }
-    #expect(text.contains("35.68"))
-    #expect(text.contains("22°C"))
-  }
-
-  @Test
   func returnsCelsiusWhenExplicitlyRequested() async throws {
     let content = try await execute(
       tool,
@@ -227,7 +213,10 @@ struct WeatherToolUnitTests {
   func includesWeatherCondition() async throws {
     let content = try await execute(
       tool,
-      arguments: ["coordinate": coordinateValue(latitude: 51.5, longitude: -0.12)]
+      arguments: [
+        "coordinate": coordinateValue(latitude: 51.5, longitude: -0.12),
+        "unit": .string("celsius"),
+      ]
     )
     guard case .string(let text) = content.kind else {
       Issue.record("Expected string content")
@@ -259,10 +248,13 @@ struct GreetingToolUnitTests {
   }
 
   @Test
-  func returnsCasualGreetingByDefault() async throws {
+  func returnsCasualGreeting() async throws {
     let content = try await execute(
       tool,
-      arguments: ["person": personValue(firstName: "Alice")]
+      arguments: [
+        "person": personValue(firstName: "Alice"),
+        "tone": .string("casual"),
+      ]
     )
     expectString(content, "Hey Alice!")
   }
@@ -292,7 +284,10 @@ struct GreetingToolUnitTests {
   func handlesSpecialCharactersInName() async throws {
     let content = try await execute(
       tool,
-      arguments: ["person": personValue(firstName: "José", lastName: "María")]
+      arguments: [
+        "person": personValue(firstName: "José", lastName: "María"),
+        "tone": .string("casual"),
+      ]
     )
     expectString(content, "Hey José María!")
   }

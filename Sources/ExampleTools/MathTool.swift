@@ -9,27 +9,29 @@ public enum MathOperation: String, CaseIterable {
 public struct MathTool {
   public struct CalculationError: Error, CustomStringConvertible {
     public let description: String
-    public init(_ description: String) { self.description = description }
   }
 
-  @Parameter("Operation")
-  public var operation: MathOperation = .add
+  @Generable
+  public struct Arguments {
+    @Parameter("Operation")
+    public var operation: MathOperation
 
-  @Parameter("First operand")
-  public var a: Double
+    @Parameter("First operand")
+    public var a: Double
 
-  @Parameter("Second operand")
-  public var b: Double
+    @Parameter("Second operand")
+    public var b: Double
+  }
 
-  public func execute() async throws -> String {
+  public func execute(_ arguments: Arguments) async throws -> String {
     let result: Double
-    switch operation {
-    case .add: result = a + b
-    case .subtract: result = a - b
-    case .multiply: result = a * b
+    switch arguments.operation {
+    case .add: result = arguments.a + arguments.b
+    case .subtract: result = arguments.a - arguments.b
+    case .multiply: result = arguments.a * arguments.b
     case .divide:
-      guard b != 0 else { throw CalculationError("Division by zero") }
-      result = a / b
+      guard arguments.b != 0 else { throw CalculationError(description: "Division by zero") }
+      result = arguments.a / arguments.b
     }
     return "Result: \(result)"
   }

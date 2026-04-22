@@ -16,26 +16,22 @@ public enum TemperatureUnit: String, CaseIterable {
 
 @Tool("Get current weather for a location")
 public struct WeatherTool {
-  @Parameter("Location coordinates")
-  public var coordinate: Coordinate
+  @Generable
+  public struct Arguments {
+    @Parameter("Location coordinates")
+    public var coordinate: Coordinate
 
-  @Parameter("Temperature unit")
-  public var unit: TemperatureUnit = .celsius
-
-  public init(
-    coordinate: Coordinate = Coordinate(latitude: 0, longitude: 0),
-    unit: TemperatureUnit = .celsius
-  ) {
-    self.coordinate = coordinate
-    self.unit = unit
+    @Parameter("Temperature unit")
+    public var unit: TemperatureUnit
   }
 
-  public func execute() async throws -> String {
+  public func execute(_ arguments: Arguments) async throws -> String {
     let temp: String
-    switch unit {
+    switch arguments.unit {
     case .celsius: temp = "22°C"
     case .fahrenheit: temp = "72°F"
     }
-    return "Weather at (\(coordinate.latitude), \(coordinate.longitude)): \(temp), Sunny"
+    return
+      "Weather at (\(arguments.coordinate.latitude), \(arguments.coordinate.longitude)): \(temp), Sunny"
   }
 }
