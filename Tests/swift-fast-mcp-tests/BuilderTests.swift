@@ -1,6 +1,7 @@
 import ExampleTools
 import Foundation
 import Logging
+import MCP
 import Testing
 import UnixSignals
 
@@ -46,7 +47,7 @@ struct BuilderTests {
   @Test
   func builderStartsWithEmptyTools() {
     let builder = FastMCP.builder()
-    #expect(builder.tools.isEmpty)
+    #expect(builder.hubTools.isEmpty)
   }
 
   @Test
@@ -76,10 +77,10 @@ struct BuilderTests {
   @Test
   func addToolsMethodAddsTools() {
     let builder = FastMCP.builder().addTools([WeatherTool(), MathTool()])
-    #expect(builder.tools.count == 2)
-    let toolNames = builder.tools.map { $0.name }
-    #expect(toolNames.contains("get_weather"))
-    #expect(toolNames.contains("calculate"))
+    #expect(builder.hubTools.count == 2)
+    let toolNames = builder.hubTools.map { $0.name }
+    #expect(toolNames.contains("weather"))
+    #expect(toolNames.contains("math"))
   }
 
   @Test
@@ -87,7 +88,7 @@ struct BuilderTests {
     let builder = FastMCP.builder()
       .addTools([WeatherTool()])
       .addTools([WeatherTool(), MathTool()])
-    #expect(builder.tools.count == 2)
+    #expect(builder.hubTools.count == 2)
   }
 
   @Test
@@ -316,7 +317,7 @@ struct BuilderTests {
     #expect(builder.serverTitle == "Full Server Display Name")
     #expect(builder.serverInstructions == "Instructions for the LLM.")
     #expect(builder.serverIcons?.count == 1)
-    #expect(builder.tools.count == 2)
+    #expect(builder.hubTools.count == 2)
     #expect(builder.prompts.count == 1)
     #expect(builder.completionsEnabled == true)
     #expect(builder.loggingEnabled == true)

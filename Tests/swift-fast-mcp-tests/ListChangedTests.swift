@@ -1,9 +1,30 @@
 import ExampleTools
+import FastMCPAIBridge
 import MCP
-import MCPToolkit
+import SwiftAIHub
 import Testing
 
 @testable import FastMCP
+
+// Helpers to read hub tool state back out of a FastMCPServerHandle, which now
+// stores tools inside a HubToolAdapter rather than a plain array.
+extension FastMCPServerHandle {
+  fileprivate func currentToolNames() async -> [String] {
+    await currentToolAdapter.names()
+  }
+
+  fileprivate func seed(
+    tools: [any SwiftAIHub.Tool] = [],
+    resources: [any MCPResource] = [],
+    prompts: [any MCPPrompt] = []
+  ) async {
+    await configure(
+      toolAdapter: HubToolAdapter(tools: tools),
+      resources: resources,
+      prompts: prompts
+    )
+  }
+}
 
 // MARK: - CapabilitiesBuilder listChanged Tests
 
@@ -91,7 +112,7 @@ struct BuilderServerHandleTests {
       .transport(.stdio)
 
     #expect(builder.serverName == "Dynamic")
-    #expect(builder.tools.count == 1)
+    #expect(builder.hubTools.count == 1)
     #expect(builder.handle != nil)
   }
 }
@@ -104,34 +125,32 @@ struct ServerHandleToolTests {
   @Test("starts with empty tools")
   func startsEmpty() async {
     let handle = FastMCPServerHandle()
-    let tools = await handle.currentTools
-    #expect(tools.isEmpty)
+    let names = await handle.currentToolNames()
+    #expect(names.isEmpty)
   }
 
   @Test("configure seeds initial tools")
   func configureSeedsTools() async {
     let handle = FastMCPServerHandle()
-    await handle.configure(tools: [WeatherTool()], resources: [], prompts: [])
-    let tools = await handle.currentTools
-    #expect(tools.count == 1)
-    #expect(tools.first?.name == "get_weather")
+    await handle.seed(tools: [WeatherTool()])
+    let names = await handle.currentToolNames()
+    #expect(names == ["weather"])
   }
 
   @Test("addTool appends a tool")
   func addToolAppends() async {
     let handle = FastMCPServerHandle()
     await handle.addTool(WeatherTool())
-    let tools = await handle.currentTools
-    #expect(tools.count == 1)
-    #expect(tools.first?.name == "get_weather")
+    let names = await handle.currentToolNames()
+    #expect(names == ["weather"])
   }
 
   @Test("addTools appends multiple tools")
   func addToolsAppendsMultiple() async {
     let handle = FastMCPServerHandle()
     await handle.addTools([WeatherTool(), MathTool()])
-    let tools = await handle.currentTools
-    #expect(tools.count == 2)
+    let names = await handle.currentToolNames()
+    #expect(Set(names) == ["weather", "math"])
   }
 
   @Test("addTool deduplicates by name")
@@ -139,18 +158,17 @@ struct ServerHandleToolTests {
     let handle = FastMCPServerHandle()
     await handle.addTool(WeatherTool())
     await handle.addTool(WeatherTool())
-    let tools = await handle.currentTools
-    #expect(tools.count == 1)
+    let names = await handle.currentToolNames()
+    #expect(names.count == 1)
   }
 
   @Test("removeTool removes by name")
   func removeToolByName() async {
     let handle = FastMCPServerHandle()
     await handle.addTools([WeatherTool(), MathTool()])
-    await handle.removeTool(named: "get_weather")
-    let tools = await handle.currentTools
-    #expect(tools.count == 1)
-    #expect(tools.first?.name == "calculate")
+    await handle.removeTool(named: "weather")
+    let names = await handle.currentToolNames()
+    #expect(names == ["math"])
   }
 
   @Test("removeTool is no-op for unknown name")
@@ -158,19 +176,18 @@ struct ServerHandleToolTests {
     let handle = FastMCPServerHandle()
     await handle.addTool(WeatherTool())
     await handle.removeTool(named: "nonexistent")
-    let tools = await handle.currentTools
-    #expect(tools.count == 1)
+    let names = await handle.currentToolNames()
+    #expect(names == ["weather"])
   }
 
   @Test("removeTool then addTool works correctly")
   func removeAndReAdd() async {
     let handle = FastMCPServerHandle()
     await handle.addTool(WeatherTool())
-    await handle.removeTool(named: "get_weather")
+    await handle.removeTool(named: "weather")
     await handle.addTool(MathTool())
-    let tools = await handle.currentTools
-    #expect(tools.count == 1)
-    #expect(tools.first?.name == "calculate")
+    let names = await handle.currentToolNames()
+    #expect(names == ["math"])
   }
 }
 
@@ -187,7 +204,7 @@ struct ServerHandleResourceTests {
   @Test("configure seeds initial resources")
   func configureSeedsResources() async {
     let handle = FastMCPServerHandle()
-    await handle.configure(tools: [], resources: [ConfigResource()], prompts: [])
+    await handle.seed(resources: [ConfigResource()])
     let resources = await handle.currentResources
     #expect(resources.count == 1)
   }
@@ -251,7 +268,7 @@ struct ServerHandlePromptTests {
   @Test("configure seeds initial prompts")
   func configureSeedsPrompts() async {
     let handle = FastMCPServerHandle()
-    await handle.configure(tools: [], resources: [], prompts: [GreetingPrompt()])
+    await handle.seed(prompts: [GreetingPrompt()])
     let prompts = await handle.currentPrompts
     #expect(prompts.count == 1)
   }
@@ -313,16 +330,16 @@ struct ServerHandleIntegrationTests {
       version: "1.0.0",
       capabilities: .init(tools: .init(listChanged: true))
     )
-    await server.register(tools: [WeatherTool()])
+    await server.register(hubTools: HubToolAdapter(tools: [WeatherTool()]))
 
     let handle = FastMCPServerHandle()
-    await handle.configure(tools: [WeatherTool()], resources: [], prompts: [])
+    await handle.seed(tools: [WeatherTool()])
     await handle.registerServer(server)
 
     await handle.addTool(MathTool())
 
-    let tools = await handle.currentTools
-    #expect(tools.count == 2)
+    let names = await handle.currentToolNames()
+    #expect(Set(names) == ["weather", "math"])
   }
 
   @Test("removeTool re-registers handler on connected server")
@@ -332,17 +349,16 @@ struct ServerHandleIntegrationTests {
       version: "1.0.0",
       capabilities: .init(tools: .init(listChanged: true))
     )
-    await server.register(tools: [WeatherTool(), MathTool()])
+    await server.register(hubTools: HubToolAdapter(tools: [WeatherTool(), MathTool()]))
 
     let handle = FastMCPServerHandle()
-    await handle.configure(tools: [WeatherTool(), MathTool()], resources: [], prompts: [])
+    await handle.seed(tools: [WeatherTool(), MathTool()])
     await handle.registerServer(server)
 
-    await handle.removeTool(named: "get_weather")
+    await handle.removeTool(named: "weather")
 
-    let tools = await handle.currentTools
-    #expect(tools.count == 1)
-    #expect(tools.first?.name == "calculate")
+    let names = await handle.currentToolNames()
+    #expect(names == ["math"])
   }
 
   @Test("addResource re-registers handler on connected server")
@@ -355,7 +371,7 @@ struct ServerHandleIntegrationTests {
     await server.register(resources: [])
 
     let handle = FastMCPServerHandle()
-    await handle.configure(tools: [], resources: [], prompts: [])
+    await handle.seed()
     await handle.registerServer(server)
 
     await handle.addResource(ConfigResource())
@@ -374,7 +390,7 @@ struct ServerHandleIntegrationTests {
     await server.register(prompts: [])
 
     let handle = FastMCPServerHandle()
-    await handle.configure(tools: [], resources: [], prompts: [])
+    await handle.seed()
     await handle.registerServer(server)
 
     await handle.addPrompt(GreetingPrompt())
@@ -390,11 +406,11 @@ struct ServerHandleIntegrationTests {
     await handle.addResource(ConfigResource())
     await handle.addPrompt(GreetingPrompt())
 
-    let tools = await handle.currentTools
+    let names = await handle.currentToolNames()
     let resources = await handle.currentResources
     let prompts = await handle.currentPrompts
 
-    #expect(tools.count == 1)
+    #expect(names.count == 1)
     #expect(resources.count == 1)
     #expect(prompts.count == 1)
   }
@@ -406,14 +422,13 @@ struct ServerHandleIntegrationTests {
     await handle.addResource(ConfigResource())
     await handle.addPrompt(GreetingPrompt())
 
-    await handle.configure(tools: [MathTool()], resources: [], prompts: [])
+    await handle.seed(tools: [MathTool()])
 
-    let tools = await handle.currentTools
+    let names = await handle.currentToolNames()
     let resources = await handle.currentResources
     let prompts = await handle.currentPrompts
 
-    #expect(tools.count == 1)
-    #expect(tools.first?.name == "calculate")
+    #expect(names == ["math"])
     #expect(resources.isEmpty)
     #expect(prompts.isEmpty)
   }
