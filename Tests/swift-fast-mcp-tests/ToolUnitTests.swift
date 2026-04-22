@@ -172,14 +172,21 @@ struct WeatherToolUnitTests {
     #expect(tool.description.contains("weather"))
   }
 
+  private func coordinateValue(latitude: Double, longitude: Double) -> Value {
+    .object(["latitude": .double(latitude), "longitude": .double(longitude)])
+  }
+
   @Test
   func returnsCelsiusByDefault() async throws {
-    let content = try await execute(tool, arguments: ["location": .string("Tokyo")])
+    let content = try await execute(
+      tool,
+      arguments: ["coordinate": coordinateValue(latitude: 35.68, longitude: 139.76)]
+    )
     guard case .string(let text) = content.kind else {
       Issue.record("Expected string content")
       return
     }
-    #expect(text.contains("Tokyo"))
+    #expect(text.contains("35.68"))
     #expect(text.contains("22°C"))
   }
 
@@ -187,7 +194,10 @@ struct WeatherToolUnitTests {
   func returnsCelsiusWhenExplicitlyRequested() async throws {
     let content = try await execute(
       tool,
-      arguments: ["location": .string("Paris"), "unit": .string("celsius")]
+      arguments: [
+        "coordinate": coordinateValue(latitude: 48.85, longitude: 2.35),
+        "unit": .string("celsius"),
+      ]
     )
     guard case .string(let text) = content.kind else {
       Issue.record("Expected string content")
@@ -200,19 +210,25 @@ struct WeatherToolUnitTests {
   func returnsFahrenheitWhenRequested() async throws {
     let content = try await execute(
       tool,
-      arguments: ["location": .string("New York"), "unit": .string("fahrenheit")]
+      arguments: [
+        "coordinate": coordinateValue(latitude: 40.71, longitude: -74.0),
+        "unit": .string("fahrenheit"),
+      ]
     )
     guard case .string(let text) = content.kind else {
       Issue.record("Expected string content")
       return
     }
-    #expect(text.contains("New York"))
+    #expect(text.contains("40.71"))
     #expect(text.contains("72°F"))
   }
 
   @Test
   func includesWeatherCondition() async throws {
-    let content = try await execute(tool, arguments: ["location": .string("London")])
+    let content = try await execute(
+      tool,
+      arguments: ["coordinate": coordinateValue(latitude: 51.5, longitude: -0.12)]
+    )
     guard case .string(let text) = content.kind else {
       Issue.record("Expected string content")
       return
@@ -236,33 +252,48 @@ struct GreetingToolUnitTests {
     #expect(tool.description.contains("greeting"))
   }
 
+  private func personValue(firstName: String, lastName: String? = nil) -> Value {
+    var fields: [String: Value] = ["firstName": .string(firstName)]
+    if let lastName { fields["lastName"] = .string(lastName) }
+    return .object(fields)
+  }
+
   @Test
-  func returnsInformalGreetingByDefault() async throws {
-    let content = try await execute(tool, arguments: ["who": .string("Alice")])
+  func returnsCasualGreetingByDefault() async throws {
+    let content = try await execute(
+      tool,
+      arguments: ["person": personValue(firstName: "Alice")]
+    )
     expectString(content, "Hey Alice!")
   }
 
   @Test
-  func returnsFormalGreetingWhenTrue() async throws {
+  func returnsFormalGreetingWhenRequested() async throws {
     let content = try await execute(
       tool,
-      arguments: ["who": .string("Bob"), "formal": .bool(true)]
+      arguments: ["person": personValue(firstName: "Bob"), "tone": .string("formal")]
     )
     expectString(content, "Good day, Bob.")
   }
 
   @Test
-  func returnsInformalGreetingWhenFormalIsFalse() async throws {
+  func returnsProfessionalGreetingWhenRequested() async throws {
     let content = try await execute(
       tool,
-      arguments: ["who": .string("Charlie"), "formal": .bool(false)]
+      arguments: [
+        "person": personValue(firstName: "Charlie", lastName: "Brown"),
+        "tone": .string("professional"),
+      ]
     )
-    expectString(content, "Hey Charlie!")
+    expectString(content, "Hello Charlie Brown, how can I help you today?")
   }
 
   @Test
   func handlesSpecialCharactersInName() async throws {
-    let content = try await execute(tool, arguments: ["who": .string("José María")])
+    let content = try await execute(
+      tool,
+      arguments: ["person": personValue(firstName: "José", lastName: "María")]
+    )
     expectString(content, "Hey José María!")
   }
 }
