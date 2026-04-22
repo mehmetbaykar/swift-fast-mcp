@@ -30,7 +30,8 @@ struct ExampleServer {
 
       // Prompts - Reusable conversation templates
       .addPrompts([
-        GreetingPrompt()
+        GreetingPrompt(),
+        CodeReviewPrompt(),
       ])
 
       // Capabilities
