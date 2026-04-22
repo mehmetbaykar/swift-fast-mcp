@@ -1,19 +1,15 @@
 import FastMCP
 
-public struct GreetingPrompt: MCPPrompt {
-  public let name = "greeting"
-  public let description: String? = "A friendly greeting conversation starter"
-  public let arguments: [PromptArgumentSpec] = [
-    PromptArgumentSpec(name: "name", description: "Who to greet", required: true),
-    PromptArgumentSpec(name: "formal", description: "Use formal tone", required: false),
-  ]
+@MCPPrompt("A friendly greeting conversation starter")
+public struct GreetingPrompt {
+  @PromptArgument("Who to greet", name: "name")
+  public var who: String
 
-  public init() {}
+  @PromptArgument("Use formal tone")
+  public var formal: Bool?
 
-  public func getMessages(arguments: [String: String]) async throws -> Messages {
-    let who = arguments["name"] ?? ""
-    let formal = (arguments["formal"] ?? "").lowercased() == "true"
-    if formal {
+  public func getMessages() async throws -> Messages {
+    if formal == true {
       return [
         .user("You are a formal assistant helping \(who)."),
         .assistant("Good day, \(who). How may I assist you today?"),
@@ -27,19 +23,15 @@ public struct GreetingPrompt: MCPPrompt {
   }
 }
 
-public struct CodeReviewPrompt: MCPPrompt {
-  public let name = "code_review"
-  public let description: String? = "Guide the assistant through a code review"
-  public let arguments: [PromptArgumentSpec] = [
-    PromptArgumentSpec(name: "language", description: "Target language", required: true),
-    PromptArgumentSpec(name: "focusAreas", description: "Specific focus areas", required: false),
-  ]
+@MCPPrompt("Guide the assistant through a code review", name: "code_review")
+public struct CodeReviewPrompt {
+  @PromptArgument("Target language")
+  public var language: String
 
-  public init() {}
+  @PromptArgument("Specific focus areas")
+  public var focusAreas: String?
 
-  public func getMessages(arguments: [String: String]) async throws -> Messages {
-    let language = arguments["language"] ?? ""
-    let focusAreas = arguments["focusAreas"]
+  public func getMessages() async throws -> Messages {
     var messages: Messages = [
       .user("You are an expert \(language) code reviewer."),
       .user("Please review the code I'm about to share. Focus on:"),

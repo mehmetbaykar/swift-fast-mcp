@@ -1,11 +1,13 @@
 import FastMCP
 
-public struct ConfigResource: MCPResource {
-  public let uri: String
-  public let name: String
-  public let description: String?
-  public let mimeType: String?
-
+@MCPResource(
+  "config://app/settings",
+  name: "App Settings",
+  description: "Application configuration and feature flags",
+  mimeType: "application/json"
+)
+public struct ConfigResource {
+  @ResourceContentBuilder
   public var content: Content {
     """
     {
@@ -18,33 +20,21 @@ public struct ConfigResource: MCPResource {
     }
     """
   }
-
-  public init() {
-    self.uri = "config://app/settings"
-    self.name = "App Settings"
-    self.description = "Application configuration and feature flags"
-    self.mimeType = "application/json"
-  }
 }
 
-public struct SystemInfoResource: MCPResource {
-  public let uri: String
-  public let name: String
-  public let description: String?
-  public let mimeType: String?
-
+@MCPResource(
+  "system://info",
+  name: "System Information",
+  description: "Current system information",
+  mimeType: "text/plain"
+)
+public struct SystemInfoResource {
+  @ResourceContentBuilder
   public var content: Content {
     """
     OS: Ubuntu
     Architecture: x86_64
     Swift Version: 6.2
     """
-  }
-
-  public init() {
-    self.uri = "system://info"
-    self.name = "System Information"
-    self.description = "Current system information"
-    self.mimeType = "text/plain"
   }
 }
