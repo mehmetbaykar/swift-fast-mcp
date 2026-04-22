@@ -119,10 +119,11 @@ public struct MCPPromptMacro: MemberMacro, ExtensionMacro {
         let isOptional =
           typeAnnotation?.is(OptionalTypeSyntax.self) == true
           || typeAnnotation?.is(ImplicitlyUnwrappedOptionalTypeSyntax.self) == true
+        let hasDefault = binding.initializer != nil
         let descText = extractArgDescription(from: attrSyntax) ?? ""
         let explicitName = extractArgName(from: attrSyntax)
         let explicitRequired = extractArgRequired(from: attrSyntax)
-        let isRequired = explicitRequired ?? !isOptional
+        let isRequired = explicitRequired ?? !(isOptional || hasDefault)
         result.append(
           PromptArgumentInfo(
             propertyName: propName,
@@ -130,7 +131,8 @@ public struct MCPPromptMacro: MemberMacro, ExtensionMacro {
             description: descText,
             swiftType: swiftType,
             isOptional: isOptional,
-            isRequired: isRequired
+            isRequired: isRequired,
+            hasDefault: hasDefault
           ))
       }
     }
@@ -205,10 +207,11 @@ public struct MCPPromptMacro: MemberMacro, ExtensionMacro {
   }
 
   private static func generateDefaultInit(_ arguments: [PromptArgumentInfo]) -> DeclSyntax {
-    if arguments.isEmpty {
+    let needsInit = arguments.filter { !$0.hasDefault }
+    if needsInit.isEmpty {
       return "public init() {}"
     }
-    let assignments = arguments.map { arg -> String in
+    let assignments = needsInit.map { arg -> String in
       "self.\(arg.propertyName) = \(zeroLiteral(for: arg.swiftType))"
     }.joined(separator: "\n        ")
     return """
@@ -251,9 +254,13 @@ public struct MCPPromptMacro: MemberMacro, ExtensionMacro {
           ? "copy.\(prop) = \(expr)"
           : "if let __v = \(expr) { copy.\(prop) = __v }"
       default:
+        // Non-primitive fallback: assume RawRepresentable with String raw
+        // value (e.g. `@Generable` String-raw enum). Unknown raw values leave
+        // the existing property value (default) in place.
+        let expr = "arguments[\(key)].flatMap({ \(base)(rawValue: $0) })"
         return isOptional
-          ? "copy.\(prop) = arguments[\(key)] as? \(base)"
-          : "if let __v = arguments[\(key)] as? \(base) { copy.\(prop) = __v }"
+          ? "copy.\(prop) = \(expr)"
+          : "if let __v = \(expr) { copy.\(prop) = __v }"
       }
     }.joined(separator: "\n        ")
 
@@ -313,6 +320,7 @@ struct PromptArgumentInfo {
   let swiftType: String
   let isOptional: Bool
   let isRequired: Bool
+  let hasDefault: Bool
 }
 
 enum PromptMacroError: Error, CustomStringConvertible {
