@@ -44,24 +44,26 @@ struct GreetingPromptUnitTests {
   func promptExposesArgumentSpecs() {
     #expect(prompt.arguments.count == 2)
     #expect(prompt.arguments.contains { $0.name == "name" })
-    #expect(prompt.arguments.contains { $0.name == "formal" })
+    #expect(prompt.arguments.contains { $0.name == "tone" })
   }
 
   @Test
-  func returnsInformalMessagesWithName() async throws {
+  func returnsCasualMessagesWithName() async throws {
     let messages = try await prompt.getMessages(arguments: ["name": "Alice"])
     #expect(messages.count == 2)
   }
 
   @Test
   func returnsFormalMessagesWhenRequested() async throws {
-    let messages = try await prompt.getMessages(arguments: ["name": "Bob", "formal": "true"])
+    let messages = try await prompt.getMessages(arguments: ["name": "Bob", "tone": "formal"])
     #expect(messages.count == 2)
   }
 
   @Test
-  func returnsInformalMessagesWhenFormalIsFalse() async throws {
-    let messages = try await prompt.getMessages(arguments: ["name": "Charlie", "formal": "false"])
+  func returnsProfessionalMessagesWhenRequested() async throws {
+    let messages = try await prompt.getMessages(
+      arguments: ["name": "Charlie", "tone": "professional"]
+    )
     #expect(messages.count == 2)
   }
 }

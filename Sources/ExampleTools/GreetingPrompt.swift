@@ -1,23 +1,34 @@
 import FastMCP
 
+@Generable
+public enum GreetingTone: String, CaseIterable {
+  case casual, formal, professional
+}
+
 @MCPPrompt("A friendly greeting conversation starter")
 public struct GreetingPrompt {
   @PromptArgument("Who to greet", name: "name")
   public var who: String
 
-  @PromptArgument("Use formal tone")
-  public var formal: Bool?
+  @PromptArgument("Tone to use")
+  public var tone: GreetingTone = .casual
 
   public func getMessages() async throws -> Messages {
-    if formal == true {
+    switch tone {
+    case .casual:
+      return [
+        .user("You are a friendly assistant helping \(who)."),
+        .assistant("Hey \(who)! What can I help you with?"),
+      ]
+    case .formal:
       return [
         .user("You are a formal assistant helping \(who)."),
         .assistant("Good day, \(who). How may I assist you today?"),
       ]
-    } else {
+    case .professional:
       return [
-        .user("You are a friendly assistant helping \(who)."),
-        .assistant("Hey \(who)! What can I help you with?"),
+        .user("You are a professional assistant helping \(who)."),
+        .assistant("Hello \(who), how can I help you today?"),
       ]
     }
   }

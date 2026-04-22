@@ -1,7 +1,7 @@
 import FastMCP
 
 @Generable
-public struct SearchResult: Sendable {
+public struct SearchResult {
   @Guide(description: "Human readable summary")
   public var summary: String
   @Guide(description: "Number of results")

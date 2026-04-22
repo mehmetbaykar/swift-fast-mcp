@@ -1,7 +1,7 @@
 import FastMCP
 
 @Generable
-public enum MathOperation: String, CaseIterable, Codable, Sendable {
+public enum MathOperation: String, CaseIterable {
   case add, subtract, multiply, divide
 }
 
