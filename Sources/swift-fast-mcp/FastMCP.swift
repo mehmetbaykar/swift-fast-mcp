@@ -225,6 +225,7 @@ extension FastMCP {
         let prompts = self.prompts
         let initializeHook = self.initializeHook
         let handle = self.handle
+        let loggingEnabled = self.loggingEnabled
 
         let httpConfig = FastMCPHTTPServer.Configuration(
           host: host,
@@ -262,6 +263,10 @@ extension FastMCP {
                 await server.register(prompts: prompts)
               }
 
+              if loggingEnabled {
+                await server.withMethodHandler(SetLoggingLevel.self) { _ in Empty() }
+              }
+
               try await server.start(transport: sessionTransport, initializeHook: initializeHook)
               return server
             },
@@ -294,6 +299,10 @@ extension FastMCP {
                 await server.register(prompts: prompts)
               }
 
+              if loggingEnabled {
+                await server.withMethodHandler(SetLoggingLevel.self) { _ in Empty() }
+              }
+
               try await server.start(transport: sessionTransport, initializeHook: initializeHook)
               return server
             },
@@ -315,6 +324,10 @@ extension FastMCP {
         await server.register(hubTools: hubToolAdapter)
         await server.register(resources: resources)
         await server.register(prompts: prompts)
+
+        if loggingEnabled {
+          await server.withMethodHandler(SetLoggingLevel.self) { _ in Empty() }
+        }
 
         if let handle {
           await handle.registerServer(server)
