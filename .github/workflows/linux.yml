@@ -1,0 +1,20 @@
+name: Linux
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: swift build + swift test (no traits)
+    runs-on: ubuntu-latest
+    container:
+      image: swift:6.2-jammy
+    steps:
+      - uses: actions/checkout@v4
+      - name: swift build
+        run: swift build
+      - name: swift test
+        run: swift test
