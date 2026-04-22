@@ -1,21 +1,24 @@
-// Exercises the "dual-use tools" promise: one tool exposed over MCP, a second
-// tool visible only inside the outer tool's LLM loop. The wire-surface
-// assertions run unconditionally; the OpenAI live roundtrip runs only when
-// OPENAI_API_KEY is set.
+// Exercises the "dual-use tools" promise from docs/05-tools-dual-use.md:
+// - Test A (behaviour): OnlineSearchTool.execute() runs end-to-end against a
+//   live LLM, internally spinning up a LanguageModelSession with
+//   GetCurrentDateTool as an internal-only tool. Skipped unless
+//   OPENAI_API_KEY is set.
+// - Test B (wire surface): when registered with the FastMCP adapter, only
+//   `onlineSearch` is externally visible; `getCurrentDate` stays internal.
 //
-// FALLBACK: we round-trip through HubToolAdapter directly instead of driving
-// mcp-inspector via npx — that is the same code path the MCP server calls on
-// `tools/call`, and it sidesteps the brittleness of a subprocess handshake.
+// Neither test goes through `HubToolAdapter.execute(name:arguments:)` — that
+// is the MCP wire dispatch path, not application API. We call the tool
+// directly via typed property access (Test A) and use the adapter's
+// in-memory `names()` introspection (Test B).
 
 import FastMCPAIBridge
 import Foundation
-import MCP
 import SwiftAIHub
 import Testing
 
 @testable import FastMCP
 
-// MARK: - Fixture tools (macro-only)
+// MARK: - Fixture tools (macro-driven, typed @Parameter access)
 
 @Tool("Return the current date/time in an IANA timezone.")
 private struct GetCurrentDateTool {
@@ -32,22 +35,18 @@ private struct GetCurrentDateTool {
 
 @Tool("Search the web for a query. Returns a concise summary.")
 private struct OnlineSearchTool {
-  let llm: (any LanguageModel)?
+  // DI — ignored by the macro, injected at construction.
+  let llm: any LanguageModel
 
   @Parameter("The user's query")
   var query: String
 
-  init(llm: (any LanguageModel)? = nil) {
+  init(llm: any LanguageModel, query: String = "") {
     self.llm = llm
-    self.query = ""
+    self.query = query
   }
 
   func execute() async throws -> String {
-    guard let llm else {
-      // No LLM configured — echo back so the wire-surface test still has
-      // something deterministic to assert on.
-      return "stub: \(query)"
-    }
     let session = LanguageModelSession(
       model: llm,
       tools: [GetCurrentDateTool()],
@@ -58,51 +57,77 @@ private struct OnlineSearchTool {
   }
 }
 
+// MARK: - Inline mock language model (Test B)
+//
+// Mirrors the 20-LoC shape of AnyLanguageModel/.../Shared/MockLanguageModel.swift
+// but against swift-ai-hub's LanguageModel protocol. The wire-surface test
+// never invokes execute(), so the body is a stub.
+
+private struct StubLanguageModel: LanguageModel {
+  typealias UnavailableReason = Never
+
+  func respond<Content>(
+    within session: LanguageModelSession,
+    to prompt: Prompt,
+    generating type: Content.Type,
+    includeSchemaInPrompt: Bool,
+    options: GenerationOptions
+  ) async throws -> LanguageModelSession.Response<Content> where Content: Generable {
+    guard type == String.self else {
+      fatalError("StubLanguageModel only supports String")
+    }
+    let text = "stub"
+    return LanguageModelSession.Response(
+      content: text as! Content,
+      rawContent: GeneratedContent(text),
+      transcriptEntries: []
+    )
+  }
+
+  func streamResponse<Content>(
+    within session: LanguageModelSession,
+    to prompt: Prompt,
+    generating type: Content.Type,
+    includeSchemaInPrompt: Bool,
+    options: GenerationOptions
+  ) -> sending LanguageModelSession.ResponseStream<Content> where Content: Generable {
+    LanguageModelSession.ResponseStream(
+      content: "stub" as! Content,
+      rawContent: GeneratedContent("stub")
+    )
+  }
+}
+
 // MARK: - Tests
 
 @Suite("onlineSearch dual-use integration")
 struct OnlineSearchIntegrationTests {
 
-  @Test("tools/list exposes only onlineSearch; getCurrentDate stays internal")
-  func wireSurfaceHidesInternalTool() async throws {
-    let adapter = HubToolAdapter(tools: [OnlineSearchTool()])
+  // Test B — wire visibility. Asserts the MCP surface exposes `onlineSearch`
+  // and keeps `getCurrentDate` out of `tools/list`. Runs on every CI.
+  @Test("MCP tools/list exposes only onlineSearch; getCurrentDate stays internal")
+  func onlineSearchIsTheOnlyMCPExposedTool() async throws {
+    let adapter = HubToolAdapter(tools: [OnlineSearchTool(llm: StubLanguageModel())])
     let names = await adapter.names()
+
     #expect(names == ["onlineSearch"])
     #expect(!names.contains("getCurrentDate"))
   }
 
-  @Test("tools/call onlineSearch round-trips through the hub adapter")
-  func toolsCallDispatchesThroughBridge() async throws {
-    let adapter = HubToolAdapter(tools: [OnlineSearchTool()])
-    let content = try await adapter.execute(
-      name: "onlineSearch",
-      arguments: .object(["query": .string("swift concurrency")])
-    )
-    guard case .string(let text) = content.kind else {
-      Issue.record("Expected string output, got \(content.kind)")
-      return
-    }
-    #expect(text == "stub: swift concurrency")
-  }
-
+  // Test A — behaviour. Types `tool.query` at compile time, calls
+  // `tool.execute()` directly. Skipped cleanly when the env var is unset.
   @Test(
-    "OpenAI live round-trip with getCurrentDate mid-loop",
-    .enabled(if: ProcessInfo.processInfo.environment["OPENAI_API_KEY"] != nil)
+    "OnlineSearchTool.execute runs a live OpenAI loop and returns a non-empty response",
+    .enabled(if: ProcessInfo.processInfo.environment["OPENAI_API_KEY"]?.isEmpty == false)
   )
-  func liveOpenAIRoundTrip() async throws {
-    guard let key = ProcessInfo.processInfo.environment["OPENAI_API_KEY"], !key.isEmpty else {
-      return
-    }
-    let llm = OpenAILanguageModel(apiKey: key, model: "gpt-4o-mini")
-    let adapter = HubToolAdapter(tools: [OnlineSearchTool(llm: llm)])
-    let content = try await adapter.execute(
-      name: "onlineSearch",
-      arguments: .object(["query": .string("What is today's date?")])
-    )
-    guard case .string(let text) = content.kind else {
-      Issue.record("Expected string output")
-      return
-    }
-    #expect(!text.isEmpty)
+  func onlineSearchToolProducesResponseWithDate() async throws {
+    let key = ProcessInfo.processInfo.environment["OPENAI_API_KEY"] ?? ""
+    let openAI = OpenAILanguageModel(apiKey: key, model: "gpt-4o-mini")
+
+    var tool = OnlineSearchTool(llm: openAI)
+    tool.query = "What is today's date?"
+    let response = try await tool.execute()
+
+    #expect(!response.isEmpty, "tool returned empty response")
   }
 }
