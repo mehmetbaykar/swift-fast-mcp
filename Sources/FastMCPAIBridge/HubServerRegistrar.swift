@@ -11,21 +11,21 @@ extension Server {
   /// MCP wire.
   @discardableResult
   public func register(hubTools adapter: HubToolAdapter) async -> Self {
-    _ = await self.withMethodHandler(ListTools.self) { _ in
+    _ = self.withMethodHandler(ListTools.self) { _ in
       let tools = await adapter.snapshot()
       return ListTools.Result(tools: tools.map { HubToolMapper.mapTool($0) })
     }
 
-    _ = await self.withMethodHandler(CallTool.self) { params in
+    _ = self.withMethodHandler(CallTool.self) { params in
       let args: Value = params.arguments.map { Value.object($0) } ?? .object([:])
       do {
         let output = try await adapter.execute(name: params.name, arguments: args)
         let content: MCP.Tool.Content
         switch output.kind {
         case .string(let s):
-          content = .text(s)
+          content = .text(text: s, annotations: nil, _meta: nil)
         default:
-          content = .text(output.jsonString)
+          content = .text(text: output.jsonString, annotations: nil, _meta: nil)
         }
         return CallTool.Result(content: [content], isError: false)
       } catch {
