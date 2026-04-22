@@ -302,13 +302,16 @@ struct StructuredSearchToolUnitTests {
   func bridgePublishesToolDescription() {
     let mapped = HubToolMapper.mapTool(tool)
     #expect(mapped.name == "structuredSearch")
-    // HubToolMapper currently advertises a free-form object schema until the
-    // generation-schema → JSON-schema work lands (task #9).
     guard case .object(let fields) = mapped.inputSchema else {
       Issue.record("Expected object input schema")
       return
     }
     #expect(fields["type"] == .string("object"))
+    guard case .object(let properties) = fields["properties"] ?? .null else {
+      Issue.record("Expected properties object")
+      return
+    }
+    #expect(properties["query"]?.objectValue?["type"] == .string("string"))
   }
 
   @Test
