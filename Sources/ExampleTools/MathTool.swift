@@ -1,5 +1,10 @@
 import FastMCP
 
+@Generable
+public enum MathOperation: String, CaseIterable, Codable, Sendable {
+  case add, subtract, multiply, divide
+}
+
 @Tool("Perform basic math operations")
 public struct MathTool {
   public struct CalculationError: Error, CustomStringConvertible {
@@ -7,8 +12,8 @@ public struct MathTool {
     public init(_ description: String) { self.description = description }
   }
 
-  @Parameter("Operation", oneOf: ["add", "subtract", "multiply", "divide"])
-  public var operation: String
+  @Parameter("Operation")
+  public var operation: MathOperation = .add
 
   @Parameter("First operand")
   public var a: Double
@@ -19,14 +24,12 @@ public struct MathTool {
   public func execute() async throws -> String {
     let result: Double
     switch operation {
-    case "add": result = a + b
-    case "subtract": result = a - b
-    case "multiply": result = a * b
-    case "divide":
+    case .add: result = a + b
+    case .subtract: result = a - b
+    case .multiply: result = a * b
+    case .divide:
       guard b != 0 else { throw CalculationError("Division by zero") }
       result = a / b
-    default:
-      throw CalculationError("Unknown operation: \(operation)")
     }
     return "Result: \(result)"
   }
