@@ -1,31 +1,20 @@
 import FastMCP
 
-public struct GreetingTool: MCPTool {
+public struct GreetingTool: SwiftAIHub.Tool {
   public let name = "greet"
-  public let description: String? = "Generate a greeting message"
+  public let description = "Generate a greeting message"
 
-  public var annotations: Tool.Annotations {
-    .init(readOnlyHint: true, idempotentHint: true)
+  @Generable
+  public struct Arguments: Sendable {
+    @Guide(description: "Who to greet")
+    public let name: String
+    @Guide(description: "Use formal tone")
+    public let formal: Bool?
   }
 
   public init() {}
 
-  @Schemable
-  public struct Parameters: Sendable {
-    public let name: String
-    public let formal: Bool?
-
-    public init(name: String, formal: Bool? = nil) {
-      self.name = name
-      self.formal = formal
-    }
-  }
-
-  public func call(with arguments: Parameters) async throws(ToolError) -> Content {
-    let greeting =
-      arguments.formal == true
-      ? "Good day, \(arguments.name)."
-      : "Hey \(arguments.name)!"
-    return [ToolContentItem(text: greeting)]
+  public func call(arguments: Arguments) async throws -> String {
+    arguments.formal == true ? "Good day, \(arguments.name)." : "Hey \(arguments.name)!"
   }
 }

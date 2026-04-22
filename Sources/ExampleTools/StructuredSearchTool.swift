@@ -1,45 +1,37 @@
 import FastMCP
 
-public struct StructuredSearchTool: MCPStructuredTool {
-  public typealias Output = SearchResult
-
+public struct StructuredSearchTool: SwiftAIHub.Tool {
   public let name = "structured_search"
-  public let description: String? = "Return search results with typed structured output"
+  public let description = "Return search results with typed structured output"
+
+  public struct QueryError: Error, CustomStringConvertible {
+    public let description: String
+    public init(_ description: String) { self.description = description }
+  }
+
+  @Generable
+  public struct Arguments: Sendable {
+    @Guide(description: "Search query")
+    public let query: String
+  }
+
+  @Generable
+  public struct SearchResult: Sendable {
+    @Guide(description: "Human readable summary")
+    public let summary: String
+    @Guide(description: "Number of results")
+    public let resultCount: Int
+  }
 
   public init() {}
 
-  @Schemable
-  public struct Parameters: Sendable {
-    public let query: String
-
-    public init(query: String) {
-      self.query = query
-    }
-  }
-
-  @Schemable
-  public struct SearchResult: Codable, Sendable {
-    public let summary: String
-    public let resultCount: Int
-
-    public init(summary: String, resultCount: Int) {
-      self.summary = summary
-      self.resultCount = resultCount
-    }
-  }
-
-  public func callStructured(with arguments: Parameters) async throws(ToolError)
-    -> StructuredToolResult<SearchResult>
-  {
+  public func call(arguments: Arguments) async throws -> SearchResult {
     guard !arguments.query.isEmpty else {
-      throw ToolError("Query cannot be empty")
+      throw QueryError("Query cannot be empty")
     }
-
-    let summary = "Found 2 results for \(arguments.query)"
-    return StructuredToolResult(
-      structuredContent: SearchResult(summary: summary, resultCount: 2)
-    ) {
-      ToolContentItem(text: summary)
-    }
+    return SearchResult(
+      summary: "Found 2 results for \(arguments.query)",
+      resultCount: 2
+    )
   }
 }
