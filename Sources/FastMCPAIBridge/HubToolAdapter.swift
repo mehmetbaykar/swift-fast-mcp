@@ -6,15 +6,15 @@ import MCP
 import SwiftAIHub
 
 public actor HubToolAdapter {
-  private var tools: [String: any Tool] = [:]
+  private var tools: [String: any SwiftAIHub.Tool] = [:]
 
-  public init(tools: [any Tool] = []) {
+  public init(tools: [any SwiftAIHub.Tool] = []) {
     for tool in tools {
       self.tools[tool.name] = tool
     }
   }
 
-  public func register(_ tool: any Tool) {
+  public func register(_ tool: any SwiftAIHub.Tool) {
     tools[tool.name] = tool
   }
 
@@ -26,7 +26,7 @@ public actor HubToolAdapter {
     Array(tools.keys)
   }
 
-  public func snapshot() -> [any Tool] {
+  public func snapshot() -> [any SwiftAIHub.Tool] {
     Array(tools.values)
   }
 
@@ -42,7 +42,7 @@ public actor HubToolAdapter {
     return try await dispatch(tool: tool, arguments: hubArgs)
   }
 
-  private func dispatch(tool: any Tool, arguments: GeneratedContent) async throws
+  private func dispatch(tool: any SwiftAIHub.Tool, arguments: GeneratedContent) async throws
     -> GeneratedContent
   {
     // Type-erased dispatch: decode Arguments via the tool's associated type,
@@ -72,6 +72,13 @@ public actor HubToolAdapter {
       return GeneratedContent(kind: .string(text.content))
     case .structure(let structure):
       return structure.content
+    case .image(let image):
+      switch image.source {
+      case .url(let url):
+        return GeneratedContent(kind: .string(url.absoluteString))
+      case .data:
+        return GeneratedContent(kind: .string("[image]"))
+      }
     }
   }
 }

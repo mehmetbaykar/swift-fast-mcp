@@ -20,7 +20,7 @@ extension Server {
       let args: Value = params.arguments.map { Value.object($0) } ?? .object([:])
       do {
         let output = try await adapter.execute(name: params.name, arguments: args)
-        let content: Tool.Content
+        let content: MCP.Tool.Content
         switch output.kind {
         case .string(let s):
           content = .text(s)

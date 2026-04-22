@@ -1,8 +1,9 @@
+import FastMCPAIBridge
 import Foundation
 import Logging
 import MCP
-import MCPToolkit
 import ServiceLifecycle
+import SwiftAIHub
 import UnixSignals
 
 #if canImport(FoundationNetworking)
@@ -19,7 +20,7 @@ extension FastMCP {
   public struct Builder: Sendable {
     var serverName: String
     var serverVersion: String
-    var tools: [any MCPTool]
+    var hubTools: [any SwiftAIHub.Tool]
     var resources: [any MCPResource]
     var prompts: [any MCPPrompt]
     var transportConfig: Transport
@@ -38,14 +39,13 @@ extension FastMCP {
     var httpCustomValidators: [any HTTPRequestValidator]
     var handle: FastMCPServerHandle?
 
-    let toolDeduplicator = ToolDeduplicator()
     let resourceDeduplicator = ResourceDeduplicator()
     let promptDeduplicator = PromptDeduplicator()
 
     public init() {
       self.serverName = ProcessInfo.processInfo.processName
       self.serverVersion = "1.0.0"
-      self.tools = []
+      self.hubTools = []
       self.resources = []
       self.prompts = []
       self.transportConfig = .stdio
@@ -77,9 +77,12 @@ extension FastMCP {
       return copy
     }
 
-    public func addTools(_ newTools: [any MCPTool]) -> Builder {
+    public func addTools(_ newTools: [any SwiftAIHub.Tool]) -> Builder {
       var copy = self
-      copy.tools = toolDeduplicator.deduplicate(copy.tools, adding: newTools)
+      let existingNames = Set(copy.hubTools.map { $0.name })
+      for tool in newTools where !existingNames.contains(tool.name) {
+        copy.hubTools.append(tool)
+      }
       return copy
     }
 
@@ -125,8 +128,6 @@ extension FastMCP {
       return copy
     }
 
-    /// Called when a client sends an initialize request. Useful for per-client auth or setup,
-    /// especially in HTTP mode where multiple clients connect.
     public func onInitialize(
       _ handler: @escaping @Sendable (Client.Info, Client.Capabilities) async throws -> Void
     ) -> Builder {
@@ -135,14 +136,12 @@ extension FastMCP {
       return copy
     }
 
-    /// Only applies to .http transport with .stateful mode. Default: 3600 seconds.
     public func sessionTimeout(_ timeout: Duration) -> Builder {
       var copy = self
       copy.sessionTimeoutDuration = timeout
       return copy
     }
 
-    /// Only applies to .http transport. Customize origin allowlist and add custom validators (e.g., auth).
     public func httpValidation(
       allowedOrigins: [String]? = nil,
       customValidators: [any HTTPRequestValidator] = []
@@ -153,26 +152,6 @@ extension FastMCP {
       return copy
     }
 
-    /// Attach a server handle for dynamic tool/resource/prompt management at runtime.
-    ///
-    /// When a handle is provided, `listChanged` is automatically advertised in server capabilities.
-    /// Use the handle to add or remove items after the server starts — connected clients are
-    /// notified automatically.
-    ///
-    /// ```swift
-    /// let handle = FastMCPServerHandle()
-    ///
-    /// Task {
-    ///   try await FastMCP.builder()
-    ///     .name("DynamicServer")
-    ///     .addTools([WeatherTool()])
-    ///     .serverHandle(handle)
-    ///     .run()
-    /// }
-    ///
-    /// // Later:
-    /// await handle.addTool(MathTool())
-    /// ```
     public func serverHandle(_ handle: FastMCPServerHandle) -> Builder {
       var copy = self
       copy.handle = handle
@@ -212,14 +191,15 @@ extension FastMCP {
     public func run() async throws {
       let logger = customLogger ?? Logger(label: serverName)
 
-      if tools.isEmpty && resources.isEmpty && prompts.isEmpty && handle == nil {
+      if hubTools.isEmpty && resources.isEmpty && prompts.isEmpty && handle == nil {
         logger.warning("Server starting with no tools, resources, or prompts registered")
       }
 
       let listChanged = handle != nil
+      let hubToolAdapter = HubToolAdapter(tools: hubTools)
 
       let capabilities = CapabilitiesBuilder.build(
-        hasTools: !tools.isEmpty || listChanged,
+        hasTools: !hubTools.isEmpty || listChanged,
         hasResources: !resources.isEmpty || listChanged,
         hasPrompts: !prompts.isEmpty || listChanged,
         hasCompletions: completionsEnabled,
@@ -228,7 +208,11 @@ extension FastMCP {
       )
 
       if let handle {
-        await handle.configure(tools: tools, resources: resources, prompts: prompts)
+        await handle.configure(
+          toolAdapter: hubToolAdapter,
+          resources: resources,
+          prompts: prompts
+        )
       }
 
       switch transportConfig {
@@ -237,7 +221,6 @@ extension FastMCP {
         let serverVersion = self.serverVersion
         let serverTitle = self.serverTitle
         let serverInstructions = self.serverInstructions
-        let tools = self.tools
         let resources = self.resources
         let prompts = self.prompts
         let initializeHook = self.initializeHook
@@ -266,15 +249,15 @@ extension FastMCP {
               )
 
               if let handle {
-                let currentTools = await handle.currentTools
+                let currentAdapter = await handle.currentToolAdapter
                 let currentResources = await handle.currentResources
                 let currentPrompts = await handle.currentPrompts
-                await server.register(tools: currentTools)
+                await server.register(hubTools: currentAdapter)
                 await server.register(resources: currentResources)
                 await server.register(prompts: currentPrompts)
                 await handle.registerServer(server)
               } else {
-                await server.register(tools: tools)
+                await server.register(hubTools: hubToolAdapter)
                 await server.register(resources: resources)
                 await server.register(prompts: prompts)
               }
@@ -298,15 +281,15 @@ extension FastMCP {
               )
 
               if let handle {
-                let currentTools = await handle.currentTools
+                let currentAdapter = await handle.currentToolAdapter
                 let currentResources = await handle.currentResources
                 let currentPrompts = await handle.currentPrompts
-                await server.register(tools: currentTools)
+                await server.register(hubTools: currentAdapter)
                 await server.register(resources: currentResources)
                 await server.register(prompts: currentPrompts)
                 await handle.registerServer(server)
               } else {
-                await server.register(tools: tools)
+                await server.register(hubTools: hubToolAdapter)
                 await server.register(resources: resources)
                 await server.register(prompts: prompts)
               }
@@ -329,7 +312,7 @@ extension FastMCP {
           capabilities: capabilities
         )
 
-        await server.register(tools: tools)
+        await server.register(hubTools: hubToolAdapter)
         await server.register(resources: resources)
         await server.register(prompts: prompts)
 

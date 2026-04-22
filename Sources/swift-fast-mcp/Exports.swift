@@ -1,4 +1,4 @@
+@_exported import FastMCPAIBridge
 @_exported import Logging
-@_exported import MCP
-@_exported import MCPToolkit
+@_exported import SwiftAIHub
 @_exported import UnixSignals
