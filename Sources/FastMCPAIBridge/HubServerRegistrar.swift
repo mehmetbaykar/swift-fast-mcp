@@ -19,15 +19,8 @@ extension Server {
     _ = self.withMethodHandler(CallTool.self) { params in
       let args: Value = params.arguments.map { Value.object($0) } ?? .object([:])
       do {
-        let output = try await adapter.execute(name: params.name, arguments: args)
-        let content: MCP.Tool.Content
-        switch output.kind {
-        case .string(let s):
-          content = .text(text: s, annotations: nil, _meta: nil)
-        default:
-          content = .text(text: output.jsonString, annotations: nil, _meta: nil)
-        }
-        return CallTool.Result(content: [content], isError: false)
+        let content = try await adapter.makeContent(name: params.name, arguments: args)
+        return CallTool.Result(content: content, isError: false)
       } catch {
         return HubErrorMapper.mapCallToolError(error, toolName: params.name)
       }
