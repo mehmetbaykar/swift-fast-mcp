@@ -37,14 +37,14 @@ public actor FastMCPServerHandle {
 
   // MARK: - Tools
 
-  public func addTool(_ tool: any SwiftAIHub.Tool) async {
-    await toolAdapter.register(tool)
+  public func addTool(_ tool: any SwiftAIHub.Tool) async throws {
+    try await toolAdapter.register(tool)
     await notifyToolsChanged()
   }
 
-  public func addTools(_ newTools: [any SwiftAIHub.Tool]) async {
+  public func addTools(_ newTools: [any SwiftAIHub.Tool]) async throws {
     for tool in newTools {
-      await toolAdapter.register(tool)
+      try await toolAdapter.register(tool)
     }
     await notifyToolsChanged()
   }

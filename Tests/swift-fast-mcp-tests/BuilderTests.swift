@@ -1,4 +1,5 @@
 import ExampleTools
+import FastMCPAIBridge
 import Foundation
 import Logging
 import MCP
@@ -75,8 +76,8 @@ struct BuilderTests {
   }
 
   @Test
-  func addToolsMethodAddsTools() {
-    let builder = FastMCP.builder().addTools([WeatherTool(), MathTool()])
+  func addToolsMethodAddsTools() throws {
+    let builder = try FastMCP.builder().addTools([WeatherTool(), MathTool()])
     #expect(builder.hubTools.count == 2)
     let toolNames = builder.hubTools.map { $0.name }
     #expect(toolNames.contains("weather"))
@@ -84,11 +85,11 @@ struct BuilderTests {
   }
 
   @Test
-  func addToolsMethodDeduplicatesToolsWithSameName() {
-    let builder = FastMCP.builder()
-      .addTools([WeatherTool()])
-      .addTools([WeatherTool(), MathTool()])
-    #expect(builder.hubTools.count == 2)
+  func addToolsMethodRejectsDuplicateTools() throws {
+    let builder = try FastMCP.builder().addTools([WeatherTool()])
+    #expect(throws: HubBridgeError.self) {
+      _ = try builder.addTools([WeatherTool(), MathTool()])
+    }
   }
 
   @Test
@@ -286,13 +287,13 @@ struct BuilderTests {
   }
 
   @Test("Builder chain works with all new options")
-  func builderChainWorksWithAllNewOptions() {
+  func builderChainWorksWithAllNewOptions() throws {
     var logger = Logger(label: "FullServer")
     logger.logLevel = .warning
 
     let icons = [Icon(src: "https://example.com/icon.png")]
 
-    let builder = FastMCP.builder()
+    let builder = try FastMCP.builder()
       .name("FullServer")
       .version("3.0.0")
       .title("Full Server Display Name")

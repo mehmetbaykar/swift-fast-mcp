@@ -224,7 +224,7 @@ struct OnlineSearchIntegrationTests {
   // and keeps `getCurrentDate` out of `tools/list`. Runs on every CI.
   @Test("MCP tools/list exposes only onlineSearch; getCurrentDate stays internal")
   func onlineSearchIsTheOnlyMCPExposedTool() async throws {
-    let adapter = HubToolAdapter(tools: [OnlineSearchTool(llm: StubLanguageModel())])
+    let adapter = try HubToolAdapter(tools: [OnlineSearchTool(llm: StubLanguageModel())])
     let names = await adapter.names()
 
     #expect(names == ["onlineSearch"])

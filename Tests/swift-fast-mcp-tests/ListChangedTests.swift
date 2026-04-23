@@ -17,9 +17,9 @@ extension FastMCPServerHandle {
     tools: [any SwiftAIHub.Tool] = [],
     resources: [any MCPResource] = [],
     prompts: [any MCPPrompt] = []
-  ) async {
+  ) async throws {
     await configure(
-      toolAdapter: HubToolAdapter(tools: tools),
+      toolAdapter: try HubToolAdapter(tools: tools),
       resources: resources,
       prompts: prompts
     )
@@ -102,9 +102,9 @@ struct BuilderServerHandleTests {
   }
 
   @Test("Builder chain works with serverHandle")
-  func builderChainWithHandle() {
+  func builderChainWithHandle() throws {
     let handle = FastMCPServerHandle()
-    let builder = FastMCP.builder()
+    let builder = try FastMCP.builder()
       .name("Dynamic")
       .version("1.0.0")
       .addTools([WeatherTool()])
@@ -130,62 +130,62 @@ struct ServerHandleToolTests {
   }
 
   @Test("configure seeds initial tools")
-  func configureSeedsTools() async {
+  func configureSeedsTools() async throws {
     let handle = FastMCPServerHandle()
-    await handle.seed(tools: [WeatherTool()])
+    try await handle.seed(tools: [WeatherTool()])
     let names = await handle.currentToolNames()
     #expect(names == ["weather"])
   }
 
   @Test("addTool appends a tool")
-  func addToolAppends() async {
+  func addToolAppends() async throws {
     let handle = FastMCPServerHandle()
-    await handle.addTool(WeatherTool())
+    try await handle.addTool(WeatherTool())
     let names = await handle.currentToolNames()
     #expect(names == ["weather"])
   }
 
   @Test("addTools appends multiple tools")
-  func addToolsAppendsMultiple() async {
+  func addToolsAppendsMultiple() async throws {
     let handle = FastMCPServerHandle()
-    await handle.addTools([WeatherTool(), MathTool()])
+    try await handle.addTools([WeatherTool(), MathTool()])
     let names = await handle.currentToolNames()
     #expect(Set(names) == ["weather", "math"])
   }
 
-  @Test("addTool deduplicates by name")
-  func addToolDeduplicates() async {
+  @Test("addTool rejects duplicate tool-name registration")
+  func addToolRejectsDuplicates() async throws {
     let handle = FastMCPServerHandle()
-    await handle.addTool(WeatherTool())
-    await handle.addTool(WeatherTool())
-    let names = await handle.currentToolNames()
-    #expect(names.count == 1)
+    try await handle.addTool(WeatherTool())
+    await #expect(throws: HubBridgeError.self) {
+      try await handle.addTool(WeatherTool())
+    }
   }
 
   @Test("removeTool removes by name")
-  func removeToolByName() async {
+  func removeToolByName() async throws {
     let handle = FastMCPServerHandle()
-    await handle.addTools([WeatherTool(), MathTool()])
+    try await handle.addTools([WeatherTool(), MathTool()])
     await handle.removeTool(named: "weather")
     let names = await handle.currentToolNames()
     #expect(names == ["math"])
   }
 
   @Test("removeTool is no-op for unknown name")
-  func removeToolUnknownName() async {
+  func removeToolUnknownName() async throws {
     let handle = FastMCPServerHandle()
-    await handle.addTool(WeatherTool())
+    try await handle.addTool(WeatherTool())
     await handle.removeTool(named: "nonexistent")
     let names = await handle.currentToolNames()
     #expect(names == ["weather"])
   }
 
   @Test("removeTool then addTool works correctly")
-  func removeAndReAdd() async {
+  func removeAndReAdd() async throws {
     let handle = FastMCPServerHandle()
-    await handle.addTool(WeatherTool())
+    try await handle.addTool(WeatherTool())
     await handle.removeTool(named: "weather")
-    await handle.addTool(MathTool())
+    try await handle.addTool(MathTool())
     let names = await handle.currentToolNames()
     #expect(names == ["math"])
   }
@@ -202,9 +202,9 @@ struct ServerHandleResourceTests {
   }
 
   @Test("configure seeds initial resources")
-  func configureSeedsResources() async {
+  func configureSeedsResources() async throws {
     let handle = FastMCPServerHandle()
-    await handle.seed(resources: [ConfigResource()])
+    try await handle.seed(resources: [ConfigResource()])
     let resources = await handle.currentResources
     #expect(resources.count == 1)
   }
@@ -266,9 +266,9 @@ struct ServerHandlePromptTests {
   }
 
   @Test("configure seeds initial prompts")
-  func configureSeedsPrompts() async {
+  func configureSeedsPrompts() async throws {
     let handle = FastMCPServerHandle()
-    await handle.seed(prompts: [GreetingPrompt()])
+    try await handle.seed(prompts: [GreetingPrompt()])
     let prompts = await handle.currentPrompts
     #expect(prompts.count == 1)
   }
@@ -330,13 +330,13 @@ struct ServerHandleIntegrationTests {
       version: "1.0.0",
       capabilities: .init(tools: .init(listChanged: true))
     )
-    await server.register(hubTools: HubToolAdapter(tools: [WeatherTool()]))
+    await server.register(hubTools: try HubToolAdapter(tools: [WeatherTool()]))
 
     let handle = FastMCPServerHandle()
-    await handle.seed(tools: [WeatherTool()])
+    try await handle.seed(tools: [WeatherTool()])
     await handle.registerServer(server)
 
-    await handle.addTool(MathTool())
+    try await handle.addTool(MathTool())
 
     let names = await handle.currentToolNames()
     #expect(Set(names) == ["weather", "math"])
@@ -349,10 +349,10 @@ struct ServerHandleIntegrationTests {
       version: "1.0.0",
       capabilities: .init(tools: .init(listChanged: true))
     )
-    await server.register(hubTools: HubToolAdapter(tools: [WeatherTool(), MathTool()]))
+    await server.register(hubTools: try HubToolAdapter(tools: [WeatherTool(), MathTool()]))
 
     let handle = FastMCPServerHandle()
-    await handle.seed(tools: [WeatherTool(), MathTool()])
+    try await handle.seed(tools: [WeatherTool(), MathTool()])
     await handle.registerServer(server)
 
     await handle.removeTool(named: "weather")
@@ -371,7 +371,7 @@ struct ServerHandleIntegrationTests {
     await server.register(resources: [])
 
     let handle = FastMCPServerHandle()
-    await handle.seed()
+    try await handle.seed()
     await handle.registerServer(server)
 
     await handle.addResource(ConfigResource())
@@ -390,7 +390,7 @@ struct ServerHandleIntegrationTests {
     await server.register(prompts: [])
 
     let handle = FastMCPServerHandle()
-    await handle.seed()
+    try await handle.seed()
     await handle.registerServer(server)
 
     await handle.addPrompt(GreetingPrompt())
@@ -400,9 +400,9 @@ struct ServerHandleIntegrationTests {
   }
 
   @Test("handle works with no registered servers")
-  func handleWorksWithoutServers() async {
+  func handleWorksWithoutServers() async throws {
     let handle = FastMCPServerHandle()
-    await handle.addTool(WeatherTool())
+    try await handle.addTool(WeatherTool())
     await handle.addResource(ConfigResource())
     await handle.addPrompt(GreetingPrompt())
 
@@ -416,13 +416,13 @@ struct ServerHandleIntegrationTests {
   }
 
   @Test("configure replaces all existing items")
-  func configureReplacesAll() async {
+  func configureReplacesAll() async throws {
     let handle = FastMCPServerHandle()
-    await handle.addTool(WeatherTool())
+    try await handle.addTool(WeatherTool())
     await handle.addResource(ConfigResource())
     await handle.addPrompt(GreetingPrompt())
 
-    await handle.seed(tools: [MathTool()])
+    try await handle.seed(tools: [MathTool()])
 
     let names = await handle.currentToolNames()
     let resources = await handle.currentResources

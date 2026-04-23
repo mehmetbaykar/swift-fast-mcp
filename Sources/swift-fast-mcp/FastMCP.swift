@@ -77,10 +77,14 @@ extension FastMCP {
       return copy
     }
 
-    public func addTools(_ newTools: [any SwiftAIHub.Tool]) -> Builder {
+    public func addTools(_ newTools: [any SwiftAIHub.Tool]) throws -> Builder {
       var copy = self
-      let existingNames = Set(copy.hubTools.map { $0.name })
-      for tool in newTools where !existingNames.contains(tool.name) {
+      var existingNames = Set(copy.hubTools.map { $0.name })
+      for tool in newTools {
+        if existingNames.contains(tool.name) {
+          throw HubBridgeError.duplicateTool(name: tool.name)
+        }
+        existingNames.insert(tool.name)
         copy.hubTools.append(tool)
       }
       return copy
@@ -196,7 +200,7 @@ extension FastMCP {
       }
 
       let listChanged = handle != nil
-      let hubToolAdapter = HubToolAdapter(tools: hubTools)
+      let hubToolAdapter = try HubToolAdapter(tools: hubTools)
 
       let capabilities = CapabilitiesBuilder.build(
         hasTools: !hubTools.isEmpty || listChanged,

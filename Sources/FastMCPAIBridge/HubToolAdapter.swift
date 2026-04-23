@@ -8,13 +8,23 @@ import SwiftAIHub
 public actor HubToolAdapter {
   private var tools: [String: any SwiftAIHub.Tool] = [:]
 
-  public init(tools: [any SwiftAIHub.Tool] = []) {
+  public init() {
+    self.tools = [:]
+  }
+
+  public init(tools: [any SwiftAIHub.Tool]) throws {
     for tool in tools {
+      if self.tools[tool.name] != nil {
+        throw HubBridgeError.duplicateTool(name: tool.name)
+      }
       self.tools[tool.name] = tool
     }
   }
 
-  public func register(_ tool: any SwiftAIHub.Tool) {
+  public func register(_ tool: any SwiftAIHub.Tool) throws {
+    if tools[tool.name] != nil {
+      throw HubBridgeError.duplicateTool(name: tool.name)
+    }
     tools[tool.name] = tool
   }
 

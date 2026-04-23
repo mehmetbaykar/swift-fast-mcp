@@ -12,7 +12,7 @@ private func execute(
   _ tool: any SwiftAIHub.Tool,
   arguments: [String: Value]
 ) async throws -> GeneratedContent {
-  let adapter = HubToolAdapter(tools: [tool])
+  let adapter = try HubToolAdapter(tools: [tool])
   return try await adapter.execute(name: tool.name, arguments: .object(arguments))
 }
 
