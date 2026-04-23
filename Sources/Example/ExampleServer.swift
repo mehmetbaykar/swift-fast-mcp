@@ -5,8 +5,11 @@ import Logging
 @main
 struct ExampleServer {
   static func main() async throws {
-    var logger = Logger(label: "FastMCP Example Server")
-    logger.logLevel = .info
+    let logger: Logger = {
+      var log = Logger(label: "FastMCP Example Server")
+      log.logLevel = .info
+      return log
+    }()
 
     try await FastMCP.builder()
       .name("FastMCP Example Server")
@@ -38,21 +41,25 @@ struct ExampleServer {
       .enableCompletions()
       .enableLogging()
 
-      // Transport — HTTP server on port 8080
-      .transport(.http(port: 8080))
+      // Transport — stdio (canonical MCP setup for Claude Desktop and CLI clients)
+      .transport(.stdio)
 
       // Custom logger - full control over logging configuration
       .logger(logger)
 
       // Lifecycle hooks
-      .onInitialize { clientInfo, capabilities in
-        print("Client connected: \(clientInfo.name) v\(clientInfo.version)")
+      //
+      // Stdio note: the server owns stdout for the JSON-RPC framing, so `print`
+      // would corrupt the wire. We route lifecycle messages through `logger`
+      // (which goes to stderr via `StreamLogHandler`) instead.
+      .onInitialize { clientInfo, _ in
+        logger.info("Client connected: \(clientInfo.name) v\(clientInfo.version)")
       }
       .onStart {
-        print("Server started on http://127.0.0.1:8080/mcp")
+        logger.info("Server started on stdio")
       }
       .onShutdown {
-        print("Server shutting down")
+        logger.info("Server shutting down")
       }
 
       .run()
