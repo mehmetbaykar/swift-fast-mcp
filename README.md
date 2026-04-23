@@ -189,15 +189,17 @@ Duplicate tools/resources/prompts are deduplicated automatically. The first regi
 
 ### Lifecycle hooks
 
+Under `.stdio` (the default), stdout carries JSON-RPC frames — do not use `print` in hooks. Route messages through the injected `Logger` instead (swift-log's default handler writes to stderr). Under `.http`, either approach is safe.
+
 ```swift
-.onStart { print("Server started") }
-.onShutdown { print("Server stopped") }
+.onStart { logger.info("Server started") }
+.onShutdown { logger.info("Server stopped") }
 .onInitialize { clientInfo, capabilities in
     // Called when a client sends an initialize request.
     // Receives Client.Info and Client.Capabilities.
     // Useful for auth checks, logging, per-client setup.
     // Especially valuable for HTTP where multiple clients connect.
-    print("Client: \(clientInfo.name) v\(clientInfo.version)")
+    logger.info("Client: \(clientInfo.name) v\(clientInfo.version)")
 }
 ```
 
@@ -429,7 +431,7 @@ struct GreetingPrompt: MCPPrompt {
 
 ## Full Example
 
-A complete stdio server with tools, resources, prompts, and lifecycle hooks. This mirrors the shipped `Sources/Example/ExampleServer.swift` — the canonical MCP setup for Claude Desktop and CLI clients that spawn the server as a subprocess. For an HTTP-specific variant (with `.httpValidation`, `.sessionTimeout`, etc.), see the [HTTP transport](#http-transport) section above.
+A complete stdio server with tools, resources, prompts, and lifecycle hooks — the canonical MCP setup for Claude Desktop and CLI clients that spawn the server as a subprocess. This matches the stdio transport/lifecycle pattern used in the shipped `Sources/Example/ExampleServer.swift` (which wires up its own tools and metadata). For an HTTP-specific variant (with `.httpValidation`, `.sessionTimeout`, etc.), see the [HTTP transport](#http-transport) section above.
 
 ```swift
 import FastMCP
