@@ -38,7 +38,7 @@ public struct MCPPromptMacro: MemberMacro, ExtensionMacro {
       members.append(generateDefaultInit(arguments))
     }
 
-    members.append(generateGetMessages(arguments))
+    members.append(generateGetMessages(arguments, promptName: promptName))
 
     return members
   }
@@ -221,50 +221,81 @@ public struct MCPPromptMacro: MemberMacro, ExtensionMacro {
       """
   }
 
-  private static func generateGetMessages(_ arguments: [PromptArgumentInfo]) -> DeclSyntax {
+  private static func generateGetMessages(
+    _ arguments: [PromptArgumentInfo], promptName: String
+  ) -> DeclSyntax {
+    let promptLiteral = literalString(promptName)
     let assigns = arguments.map { arg -> String in
       let key = literalString(arg.argumentName)
       let prop = arg.propertyName
       let base = baseSwiftType(arg.swiftType)
       let isOptional = arg.isOptional
+      let isRequired = arg.isRequired && !arg.hasDefault
+
+      // String is the raw arguments[key] value; other types parse from it.
+      // Parenthesized closures below avoid the trailing-closure-confusable
+      // warning when the non-optional branch wraps them in
+      // `if let __v = <expr> { ... }`.
+      let parseExpr: String
+      let invalidReason: String
       switch base {
       case "String":
-        return isOptional
-          ? "copy.\(prop) = arguments[\(key)]"
-          : "if let __v = arguments[\(key)] { copy.\(prop) = __v }"
+        parseExpr = "arguments[\(key)]"
+        invalidReason = ""
       case "Bool":
-        // Parenthesized closures here avoid the trailing-closure-confusable
-        // warning when the non-optional branch wraps this expression in
-        // `if let __v = <expr> { ... }`.
-        let expr =
-          "arguments[\(key)].map({ $0.lowercased() == \"true\" })"
-        return isOptional
-          ? "copy.\(prop) = \(expr)"
-          : "if let __v = \(expr) { copy.\(prop) = __v }"
+        parseExpr = "arguments[\(key)].map({ $0.lowercased() == \"true\" })"
+        invalidReason = "expected a string but got nothing to parse"
       case "Int":
-        let expr = "arguments[\(key)].flatMap({ Int($0) })"
-        return isOptional
-          ? "copy.\(prop) = \(expr)"
-          : "if let __v = \(expr) { copy.\(prop) = __v }"
+        parseExpr = "arguments[\(key)].flatMap({ Int($0) })"
+        invalidReason = "could not parse as Int"
       case "Double":
-        let expr = "arguments[\(key)].flatMap({ Double($0) })"
-        return isOptional
-          ? "copy.\(prop) = \(expr)"
-          : "if let __v = \(expr) { copy.\(prop) = __v }"
+        parseExpr = "arguments[\(key)].flatMap({ Double($0) })"
+        invalidReason = "could not parse as Double"
       case "Float":
-        let expr = "arguments[\(key)].flatMap({ Float($0) })"
-        return isOptional
-          ? "copy.\(prop) = \(expr)"
-          : "if let __v = \(expr) { copy.\(prop) = __v }"
+        parseExpr = "arguments[\(key)].flatMap({ Float($0) })"
+        invalidReason = "could not parse as Float"
       default:
         // Non-primitive fallback: assume RawRepresentable with String raw
-        // value (e.g. `@Generable` String-raw enum). Unknown raw values leave
-        // the existing property value (default) in place.
-        let expr = "arguments[\(key)].flatMap({ \(base)(rawValue: $0) })"
-        return isOptional
-          ? "copy.\(prop) = \(expr)"
-          : "if let __v = \(expr) { copy.\(prop) = __v }"
+        // value (e.g. `@Generable` String-raw enum).
+        parseExpr = "arguments[\(key)].flatMap({ \(base)(rawValue: $0) })"
+        invalidReason = "not a valid raw value for \(base)"
       }
+
+      if isOptional {
+        return "copy.\(prop) = \(parseExpr)"
+      }
+
+      // Required, non-optional, no default: validate the raw arguments[key]
+      // exists first (distinguish "missing" from "invalid"), then parse.
+      if base == "String" {
+        return """
+          guard let __v = arguments[\(key)] else {
+                      throw FastMCPError.missingRequiredPromptArgument(prompt: \(promptLiteral), name: \(key))
+                  }
+                  copy.\(prop) = __v
+          """
+      }
+      if isRequired {
+        return """
+          guard let __raw = arguments[\(key)] else {
+                      throw FastMCPError.missingRequiredPromptArgument(prompt: \(promptLiteral), name: \(key))
+                  }
+                  guard let __v = \(parseExpr.replacingOccurrences(of: "arguments[\(key)]", with: "Optional.some(__raw)")) else {
+                      throw FastMCPError.invalidPromptArgumentValue(prompt: \(promptLiteral), name: \(key), reason: \(literalString(invalidReason)))
+                  }
+                  copy.\(prop) = __v
+          """
+      }
+      // Non-optional but has a default → absence is allowed (keeps default),
+      // but if present-and-invalid, reject.
+      return """
+        if let __raw = arguments[\(key)] {
+                    guard let __v = \(parseExpr.replacingOccurrences(of: "arguments[\(key)]", with: "Optional.some(__raw)")) else {
+                        throw FastMCPError.invalidPromptArgumentValue(prompt: \(promptLiteral), name: \(key), reason: \(literalString(invalidReason)))
+                    }
+                    copy.\(prop) = __v
+                }
+        """
     }.joined(separator: "\n        ")
 
     let body =

@@ -95,6 +95,29 @@ struct MCPPromptMacroTests {
     }
     #expect(body == "count=42 ratio=1.5")
   }
+
+  // C: required-arg validation. Previously the generated dispatcher
+  // silently used the zero/default value for missing required args.
+  @Test
+  func missingRequiredArgThrows() async {
+    await #expect(throws: FastMCPError.self) {
+      try await NumericPrompt().getMessages(arguments: [:])
+    }
+  }
+
+  @Test
+  func invalidRequiredArgThrows() async {
+    await #expect(throws: FastMCPError.self) {
+      try await NumericPrompt().getMessages(arguments: ["count": "not-a-number"])
+    }
+  }
+
+  @Test
+  func requiredStringMissingThrows() async {
+    await #expect(throws: FastMCPError.self) {
+      try await SamplePrompt().getMessages(arguments: [:])
+    }
+  }
 }
 
 // MARK: - @MCPResource
