@@ -405,27 +405,36 @@ struct OnlineSearchIntegrationTests {
     // tool baked into OnlineSearchTool.execute's inner session.
     let adapter = try HubToolAdapter(tools: [OnlineSearchTool(llm: openAI)])
 
-    // Invoke through the MCP wire shape: tools/call dispatches through
-    // `adapter.execute(name:arguments:)`. Build MCP.Value via the bridge's
-    // own value mapper (same path the live MCP `tools/call` handler uses)
-    // to avoid `import MCP` shadowing `SwiftAIHub.Prompt` in this file.
+    // Invoke through the SAME path HubServerRegistrar's tools/call
+    // handler uses: adapter.makeContent(...) returns typed [Tool.Content]
+    // blocks (not the lossy GeneratedContent detour of adapter.execute).
+    // Build MCP.Value via the bridge's own value mapper to avoid
+    // `import MCP` shadowing `SwiftAIHub.Prompt` elsewhere in this file.
     let argContent = GeneratedContent(
       kind: .structure(
         properties: ["query": GeneratedContent("swift concurrency")],
         orderedKeys: ["query"]
       )
     )
-    let result = try await adapter.execute(
+    let content = try await adapter.makeContent(
       name: "onlineSearch",
       arguments: HubValueMapper.value(from: argContent)
     )
 
-    // Result must be the final assistant message with today's date.
-    guard case .string(let text) = result.kind else {
-      Issue.record("expected string result, got \(result.kind)")
+    // The registrar wraps this in `CallTool.Result(content:, isError: false)`;
+    // assert the exact content shape the wire surface exposes. A single
+    // String tool output maps to one `.text(String)` segment.
+    #expect(content.count == 1, "expected one content block, got \(content.count)")
+    guard content.count == 1 else { return }
+    let rendered: String
+    switch content[0] {
+    case .text(let text, _, _):
+      rendered = text
+    default:
+      Issue.record("expected .text content block, got \(content[0])")
       return
     }
-    #expect(text.contains("2026"), "final response should echo mocked date: \(text)")
+    #expect(rendered.contains("2026"), "final response should echo mocked date: \(rendered)")
 
     // The second HTTP round only consumes when the first-round tool_call
     // for getCurrentDate was dispatched and its output posted back to
