@@ -31,12 +31,15 @@ public enum HubValueMapper {
       return GeneratedContent(kind: .structure(properties: properties, orderedKeys: orderedKeys))
     case .data(let mime, let data):
       let encoded = data.base64EncodedString()
-      let prefix = mime.map { "data:\($0);base64," } ?? ""
+      let prefix = mime.map { "data:\($0);base64," } ?? "data:;base64,"
       return GeneratedContent(kind: .string(prefix + encoded))
     }
   }
 
   /// Convert hub GeneratedContent back into an MCP wire value.
+  ///
+  /// Strings shaped as `data:[mime];base64,<body>` are restored to `.data`
+  /// so that `generatedContent(from: .data(...))` round-trips without loss.
   public static func value(from content: GeneratedContent) -> Value {
     switch content.kind {
     case .null:
@@ -49,6 +52,9 @@ public enum HubValueMapper {
       }
       return .double(n)
     case .string(let s):
+      if let (mime, data) = decodeDataURL(s) {
+        return .data(mimeType: mime, data)
+      }
       return .string(s)
     case .array(let arr):
       return .array(arr.map { value(from: $0) })
@@ -61,5 +67,20 @@ public enum HubValueMapper {
       }
       return .object(object)
     }
+  }
+
+  /// Parse `data:[mime];base64,<body>` → `(mime?, bytes)`.
+  /// Returns `nil` for anything not matching the shape or whose body fails
+  /// base64 decode — plain strings pass through unchanged.
+  private static func decodeDataURL(_ s: String) -> (mime: String?, data: Data)? {
+    guard s.hasPrefix("data:"),
+      let comma = s.firstIndex(of: ","),
+      let semi = s.range(of: ";base64", range: s.startIndex..<comma)
+    else { return nil }
+    let mimeRange = s.index(s.startIndex, offsetBy: 5)..<semi.lowerBound
+    let mime = String(s[mimeRange])
+    let body = String(s[s.index(after: comma)...])
+    guard let data = Data(base64Encoded: body) else { return nil }
+    return (mime.isEmpty ? nil : mime, data)
   }
 }
