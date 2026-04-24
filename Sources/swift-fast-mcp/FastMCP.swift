@@ -238,12 +238,21 @@ extension FastMCP {
           sessionTimeout: TimeInterval(sessionTimeoutDuration.components.seconds)
         )
 
+        let validationPipeline: (any HTTPRequestValidationPipeline)? = {
+          var validators: [any HTTPRequestValidator] = []
+          if let allowed = httpAllowedOrigins, !allowed.isEmpty {
+            validators.append(OriginValidator(allowedHosts: [host], allowedOrigins: allowed))
+          }
+          validators.append(contentsOf: httpCustomValidators)
+          return validators.isEmpty ? nil : StandardValidationPipeline(validators: validators)
+        }()
+
         let httpServer: FastMCPHTTPServer
         switch mode {
         case .stateful:
           httpServer = FastMCPHTTPServer(
             configuration: httpConfig,
-            validationPipeline: nil,
+            validationPipeline: validationPipeline,
             serverFactory: { sessionID, sessionTransport in
               let server = Server(
                 name: serverName,
@@ -276,7 +285,7 @@ extension FastMCP {
         case .stateless:
           httpServer = FastMCPHTTPServer(
             configuration: httpConfig,
-            validationPipeline: nil,
+            validationPipeline: validationPipeline,
             statelessServerFactory: { sessionTransport in
               let server = Server(
                 name: serverName,
