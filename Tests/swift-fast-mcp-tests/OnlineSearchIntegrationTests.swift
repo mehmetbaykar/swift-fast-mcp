@@ -217,7 +217,7 @@ final class MockURLProtocol: URLProtocol, @unchecked Sendable {
 
 // MARK: - Tests
 
-@Suite("onlineSearch dual-use integration")
+@Suite("onlineSearch dual-use integration", .serialized)
 struct OnlineSearchIntegrationTests {
 
   // Test B — wire visibility. Asserts the MCP surface exposes `onlineSearch`
@@ -319,6 +319,124 @@ struct OnlineSearchIntegrationTests {
     #expect(
       MockURLProtocol.consumedCount() == 2,
       "expected 2 HTTP round-trips, saw \(MockURLProtocol.consumedCount())"
+    )
+  }
+
+  // Test C — MCP wire surface. Drives `onlineSearch` through
+  // `HubToolAdapter.execute(name:arguments:)` (the path MCP `tools/call`
+  // uses) and proves two things the previous tests did not cover:
+  //   1) the arg-mapping, dispatch, and result-mapping all work via the
+  //      bridge — not via direct `tool.execute(_:)`;
+  //   2) the internal `getCurrentDate` tool was actually invoked mid-loop
+  //      inside `OnlineSearchTool.execute`, evidenced by the second HTTP
+  //      round-trip being consumed (the scripted second response is only
+  //      reachable when the first response's tool_call is dispatched and
+  //      the result is posted back to the model).
+  @Test(
+    "HubToolAdapter.execute drives tools/call through MCP wire and triggers internal getCurrentDate"
+  )
+  func onlineSearchViaAdapterExerciseMCPWireAndInternalTool() async throws {
+    let firstRoundJSON = """
+      {
+        "id": "chatcmpl-mock1",
+        "object": "chat.completion",
+        "created": 1777000000,
+        "model": "gpt-4o-mini",
+        "choices": [{
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [{
+              "id": "call_mock_date",
+              "type": "function",
+              "function": {
+                "name": "getCurrentDate",
+                "arguments": "{\\"timezone\\":\\"UTC\\"}"
+              }
+            }]
+          },
+          "finish_reason": "tool_calls"
+        }]
+      }
+      """.data(using: .utf8)!
+
+    let secondRoundJSON = """
+      {
+        "id": "chatcmpl-mock2",
+        "object": "chat.completion",
+        "created": 1777000001,
+        "model": "gpt-4o-mini",
+        "choices": [{
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Today is 2026-04-22. Result for swift concurrency."
+          },
+          "finish_reason": "stop"
+        }]
+      }
+      """.data(using: .utf8)!
+
+    let mockSession = MockURLProtocol.install(script: [
+      .init(
+        pathSuffix: "/chat/completions",
+        bodyContains: "Search the web for:",
+        status: 200,
+        body: firstRoundJSON
+      ),
+      .init(
+        pathSuffix: "/chat/completions",
+        bodyContains: "call_mock_date",
+        status: 200,
+        body: secondRoundJSON
+      ),
+    ])
+
+    let openAI = OpenAILanguageModel(
+      baseURL: URL(string: "https://mock.openai.test/v1/")!,
+      apiKey: "mock-key",
+      model: "gpt-4o-mini",
+      session: mockSession
+    )
+
+    // Wire OnlineSearchTool through the bridge adapter. Note: only
+    // onlineSearch is registered — getCurrentDate is an internal-only
+    // tool baked into OnlineSearchTool.execute's inner session.
+    let adapter = try HubToolAdapter(tools: [OnlineSearchTool(llm: openAI)])
+
+    // Invoke through the MCP wire shape: tools/call dispatches through
+    // `adapter.execute(name:arguments:)`. Build MCP.Value via the bridge's
+    // own value mapper (same path the live MCP `tools/call` handler uses)
+    // to avoid `import MCP` shadowing `SwiftAIHub.Prompt` in this file.
+    let argContent = GeneratedContent(
+      kind: .structure(
+        properties: ["query": GeneratedContent("swift concurrency")],
+        orderedKeys: ["query"]
+      )
+    )
+    let result = try await adapter.execute(
+      name: "onlineSearch",
+      arguments: HubValueMapper.value(from: argContent)
+    )
+
+    // Result must be the final assistant message with today's date.
+    guard case .string(let text) = result.kind else {
+      Issue.record("expected string result, got \(result.kind)")
+      return
+    }
+    #expect(text.contains("2026"), "final response should echo mocked date: \(text)")
+
+    // The second HTTP round only consumes when the first-round tool_call
+    // for getCurrentDate was dispatched and its output posted back to
+    // the model. Two consumptions = internal tool invoked mid-loop.
+    #expect(
+      MockURLProtocol.consumedCount() == 2,
+      "expected 2 HTTP round-trips (proves getCurrentDate ran mid-loop), saw \(MockURLProtocol.consumedCount())"
+    )
+    #expect(
+      MockURLProtocol.remainingCount() == 0,
+      "unconsumed scripted responses: \(MockURLProtocol.remainingCount())"
     )
   }
 }
