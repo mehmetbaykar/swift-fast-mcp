@@ -35,6 +35,21 @@ public actor FastMCPServerHandle {
     servers.append(server)
   }
 
+  /// Atomically attach a new HTTP session's `Server` to the handle and
+  /// register its tool/resource/prompt handlers with the current catalog.
+  ///
+  /// The server is appended to `servers` BEFORE handler registration so that
+  /// any concurrent `addResource`/`addPrompt`/… mutation that lands on this
+  /// actor during the subsequent `await`s reaches the new server via the
+  /// usual re-register path. Without this, a mutation between the catalog
+  /// snapshot and `registerServer` would be missed by the new session.
+  func attachHTTPSession(_ server: Server) async {
+    servers.append(server)
+    await server.register(hubTools: toolAdapter)
+    await server.register(resources: resources)
+    await server.register(prompts: prompts)
+  }
+
   // MARK: - Tools
 
   public func addTool(_ tool: any SwiftAIHub.Tool) async throws {

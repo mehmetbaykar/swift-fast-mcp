@@ -254,13 +254,7 @@ extension FastMCP {
               )
 
               if let handle {
-                let currentAdapter = await handle.currentToolAdapter
-                let currentResources = await handle.currentResources
-                let currentPrompts = await handle.currentPrompts
-                await server.register(hubTools: currentAdapter)
-                await server.register(resources: currentResources)
-                await server.register(prompts: currentPrompts)
-                await handle.registerServer(server)
+                await handle.attachHTTPSession(server)
               } else {
                 await server.register(hubTools: hubToolAdapter)
                 await server.register(resources: resources)
@@ -290,13 +284,7 @@ extension FastMCP {
               )
 
               if let handle {
-                let currentAdapter = await handle.currentToolAdapter
-                let currentResources = await handle.currentResources
-                let currentPrompts = await handle.currentPrompts
-                await server.register(hubTools: currentAdapter)
-                await server.register(resources: currentResources)
-                await server.register(prompts: currentPrompts)
-                await handle.registerServer(server)
+                await handle.attachHTTPSession(server)
               } else {
                 await server.register(hubTools: hubToolAdapter)
                 await server.register(resources: resources)
