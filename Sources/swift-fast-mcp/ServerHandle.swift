@@ -35,17 +35,27 @@ public actor FastMCPServerHandle {
     servers.append(server)
   }
 
-  /// Atomically attach a new HTTP session's `Server` to the handle and
-  /// register its tool/resource/prompt handlers with the current catalog.
+  /// Register tool/resource/prompt handlers on a new HTTP session's `Server`
+  /// from the current catalog. Must be called BEFORE `server.start(...)`.
   ///
-  /// The server is appended to `servers` BEFORE handler registration so that
-  /// any concurrent `addResource`/`addPrompt`/… mutation that lands on this
-  /// actor during the subsequent `await`s reaches the new server via the
-  /// usual re-register path. Without this, a mutation between the catalog
-  /// snapshot and `registerServer` would be missed by the new session.
-  func attachHTTPSession(_ server: Server) async {
-    servers.append(server)
+  /// Paired with ``activateHTTPSession(_:)``, which publishes the server to
+  /// the handle's tracking list after `start` has completed. Splitting the
+  /// registration and activation avoids a race where notifying an
+  /// un-started server throws a connection-not-initialized error and the
+  /// existing prune logic removes it from the tracking list before it has
+  /// begun servicing requests.
+  func registerHTTPSession(_ server: Server) async {
     await server.register(hubTools: toolAdapter)
+    await server.register(resources: resources)
+    await server.register(prompts: prompts)
+  }
+
+  /// Publish a started HTTP session's `Server` to the handle's tracking list
+  /// so subsequent catalog mutations reach it, then refresh resource and
+  /// prompt registrations against the current state in case the catalog
+  /// changed while the server was starting.
+  func activateHTTPSession(_ server: Server) async {
+    servers.append(server)
     await server.register(resources: resources)
     await server.register(prompts: prompts)
   }
@@ -58,6 +68,17 @@ public actor FastMCPServerHandle {
   }
 
   public func addTools(_ newTools: [any SwiftAIHub.Tool]) async throws {
+    // Prevalidate against existing names AND duplicates within the batch
+    // before any adapter mutation. Previously this loop registered each
+    // tool in sequence and, on a mid-batch throw, left earlier items
+    // committed without a ToolListChangedNotification — leaving clients
+    // with a stale view of the catalog.
+    var seen = Set(await toolAdapter.names())
+    for tool in newTools {
+      if !seen.insert(tool.name).inserted {
+        throw HubBridgeError.duplicateTool(name: tool.name)
+      }
+    }
     for tool in newTools {
       try await toolAdapter.register(tool)
     }

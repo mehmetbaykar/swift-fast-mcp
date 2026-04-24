@@ -254,7 +254,7 @@ extension FastMCP {
               )
 
               if let handle {
-                await handle.attachHTTPSession(server)
+                await handle.registerHTTPSession(server)
               } else {
                 await server.register(hubTools: hubToolAdapter)
                 await server.register(resources: resources)
@@ -266,6 +266,9 @@ extension FastMCP {
               }
 
               try await server.start(transport: sessionTransport, initializeHook: initializeHook)
+              if let handle {
+                await handle.activateHTTPSession(server)
+              }
               return server
             },
             logger: logger
@@ -284,7 +287,7 @@ extension FastMCP {
               )
 
               if let handle {
-                await handle.attachHTTPSession(server)
+                await handle.registerHTTPSession(server)
               } else {
                 await server.register(hubTools: hubToolAdapter)
                 await server.register(resources: resources)
@@ -296,6 +299,9 @@ extension FastMCP {
               }
 
               try await server.start(transport: sessionTransport, initializeHook: initializeHook)
+              if let handle {
+                await handle.activateHTTPSession(server)
+              }
               return server
             },
             logger: logger
