@@ -11,20 +11,17 @@ import UnixSignals
 @Suite("FastMCP Builder Tests")
 struct BuilderTests {
 
-  @Test
-  func builderUsesProcessNameAsDefaultServerName() {
+  @Test func `builder uses process name as default server name`() {
     let builder = FastMCP.builder()
     #expect(builder.serverName == ProcessInfo.processInfo.processName)
   }
 
-  @Test
-  func builderUsesDefaultVersion() {
+  @Test func `builder uses default version`() {
     let builder = FastMCP.builder()
     #expect(builder.serverVersion == "1.0.0")
   }
 
-  @Test
-  func builderUsesStdioTransportByDefault() {
+  @Test func `builder uses stdio transport by default`() {
     let builder = FastMCP.builder()
     guard case .stdio = builder.transportConfig else {
       Issue.record("Expected stdio transport by default")
@@ -32,51 +29,43 @@ struct BuilderTests {
     }
   }
 
-  @Test
-  func builderUsesNoLoggerByDefault() {
+  @Test func `builder uses no logger by default`() {
     let builder = FastMCP.builder()
     #expect(builder.customLogger == nil)
   }
 
-  @Test
-  func builderUsesDefaultShutdownSignals() {
+  @Test func `builder uses default shutdown signals`() {
     let builder = FastMCP.builder()
     #expect(builder.shutdownSignals.contains(.sigterm))
     #expect(builder.shutdownSignals.contains(.sigint))
   }
 
-  @Test
-  func builderStartsWithEmptyTools() {
+  @Test func `builder starts with empty tools`() {
     let builder = FastMCP.builder()
     #expect(builder.hubTools.isEmpty)
   }
 
-  @Test
-  func builderStartsWithEmptyResources() {
+  @Test func `builder starts with empty resources`() {
     let builder = FastMCP.builder()
     #expect(builder.resources.isEmpty)
   }
 
-  @Test
-  func builderStartsWithEmptyPrompts() {
+  @Test func `builder starts with empty prompts`() {
     let builder = FastMCP.builder()
     #expect(builder.prompts.isEmpty)
   }
 
-  @Test
-  func nameMethodUpdatesServerName() {
+  @Test func `name method updates server name`() {
     let builder = FastMCP.builder().name("CustomServer")
     #expect(builder.serverName == "CustomServer")
   }
 
-  @Test
-  func versionMethodUpdatesServerVersion() {
+  @Test func `version method updates server version`() {
     let builder = FastMCP.builder().version("2.5.0")
     #expect(builder.serverVersion == "2.5.0")
   }
 
-  @Test
-  func addToolsMethodAddsTools() throws {
+  @Test func `add tools method adds tools`() throws {
     let builder = try FastMCP.builder().addTools([WeatherTool(), MathTool()])
     #expect(builder.hubTools.count == 2)
     let toolNames = builder.hubTools.map { $0.name }
@@ -84,31 +73,27 @@ struct BuilderTests {
     #expect(toolNames.contains("math"))
   }
 
-  @Test
-  func addToolsMethodRejectsDuplicateTools() throws {
+  @Test func `add tools method rejects duplicate tools`() throws {
     let builder = try FastMCP.builder().addTools([WeatherTool()])
     #expect(throws: HubBridgeError.self) {
       _ = try builder.addTools([WeatherTool(), MathTool()])
     }
   }
 
-  @Test
-  func addPromptsMethodAddsPrompts() {
+  @Test func `add prompts method adds prompts`() {
     let builder = FastMCP.builder().addPrompts([GreetingPrompt()])
     #expect(builder.prompts.count == 1)
     #expect(builder.prompts.first?.name == "greeting")
   }
 
-  @Test
-  func addPromptsMethodDeduplicatesPromptsWithSameName() {
+  @Test func `add prompts method deduplicates prompts with same name`() {
     let builder = FastMCP.builder()
       .addPrompts([GreetingPrompt()])
       .addPrompts([GreetingPrompt()])
     #expect(builder.prompts.count == 1)
   }
 
-  @Test
-  func transportMethodUpdatesTransportConfig() {
+  @Test func `transport method updates transport config`() {
     let builder = FastMCP.builder().transport(.inMemory)
     guard case .inMemory = builder.transportConfig else {
       Issue.record("Expected inMemory transport")
@@ -116,35 +101,30 @@ struct BuilderTests {
     }
   }
 
-  @Test
-  func loggerMethodSetsCustomLogger() {
+  @Test func `logger method sets custom logger`() {
     var logger = Logger(label: "test")
     logger.logLevel = .debug
     let builder = FastMCP.builder().logger(logger)
     #expect(builder.customLogger != nil)
   }
 
-  @Test
-  func shutdownSignalsMethodUpdatesSignals() {
+  @Test func `shutdown signals method updates signals`() {
     let builder = FastMCP.builder().shutdownSignals([.sigterm])
     #expect(builder.shutdownSignals.count == 1)
     #expect(builder.shutdownSignals.contains(.sigterm))
   }
 
-  @Test
-  func onStartMethodSetsHandler() {
+  @Test func `on start method sets handler`() {
     let builder = FastMCP.builder().onStart {}
     #expect(builder.onStartHandler != nil)
   }
 
-  @Test
-  func onShutdownMethodSetsHandler() {
+  @Test func `on shutdown method sets handler`() {
     let builder = FastMCP.builder().onShutdown {}
     #expect(builder.onShutdownHandler != nil)
   }
 
-  @Test
-  func builderCreatesNewInstanceOnEachMethod() {
+  @Test func `builder creates new instance on each method`() {
     let original = FastMCP.builder().name("Original")
     let modified = original.name("Modified")
 
@@ -152,8 +132,7 @@ struct BuilderTests {
     #expect(modified.serverName == "Modified")
   }
 
-  @Test
-  func inMemoryTransportIsAvailable() {
+  @Test func `in memory transport is available`() {
     let builder = FastMCP.builder().transport(.inMemory)
     guard case .inMemory = builder.transportConfig else {
       Issue.record("Expected inMemory transport")
@@ -163,32 +142,32 @@ struct BuilderTests {
 
   // MARK: - New builder fields
 
-  @Test("Builder stores title field")
-  func titleMethodUpdatesServerTitle() {
+  @Test
+  func `Builder stores title field`() {
     let builder = FastMCP.builder().title("My Display Name")
     #expect(builder.serverTitle == "My Display Name")
   }
 
-  @Test("Builder title defaults to nil")
-  func titleDefaultsToNil() {
+  @Test
+  func `Builder title defaults to nil`() {
     let builder = FastMCP.builder()
     #expect(builder.serverTitle == nil)
   }
 
-  @Test("Builder stores instructions field")
-  func instructionsMethodUpdatesServerInstructions() {
+  @Test
+  func `Builder stores instructions field`() {
     let builder = FastMCP.builder().instructions("Use this server for weather lookups.")
     #expect(builder.serverInstructions == "Use this server for weather lookups.")
   }
 
-  @Test("Builder instructions defaults to nil")
-  func instructionsDefaultsToNil() {
+  @Test
+  func `Builder instructions defaults to nil`() {
     let builder = FastMCP.builder()
     #expect(builder.serverInstructions == nil)
   }
 
-  @Test("Builder stores icons field")
-  func iconsMethodUpdatesServerIcons() {
+  @Test
+  func `Builder stores icons field`() {
     let icons = [Icon(src: "https://example.com/icon.png", mimeType: "image/png")]
     let builder = FastMCP.builder().icons(icons)
     #expect(builder.serverIcons != nil)
@@ -196,50 +175,50 @@ struct BuilderTests {
     #expect(builder.serverIcons?.first?.src == "https://example.com/icon.png")
   }
 
-  @Test("Builder icons defaults to nil")
-  func iconsDefaultsToNil() {
+  @Test
+  func `Builder icons defaults to nil`() {
     let builder = FastMCP.builder()
     #expect(builder.serverIcons == nil)
   }
 
-  @Test("Builder default sessionTimeout is .seconds(3600)")
-  func defaultSessionTimeout() {
+  @Test
+  func `Builder default sessionTimeout is .seconds(3600)`() {
     let builder = FastMCP.builder()
     #expect(builder.sessionTimeoutDuration == .seconds(3600))
   }
 
-  @Test("Builder custom sessionTimeout is stored")
-  func customSessionTimeout() {
+  @Test
+  func `Builder custom sessionTimeout is stored`() {
     let builder = FastMCP.builder().sessionTimeout(.seconds(1800))
     #expect(builder.sessionTimeoutDuration == .seconds(1800))
   }
 
-  @Test("Builder enableCompletions stores true")
-  func enableCompletionsStoresTrue() {
+  @Test
+  func `Builder enableCompletions stores true`() {
     let builder = FastMCP.builder().enableCompletions()
     #expect(builder.completionsEnabled == true)
   }
 
-  @Test("Builder completions defaults to false")
-  func completionsDefaultsToFalse() {
+  @Test
+  func `Builder completions defaults to false`() {
     let builder = FastMCP.builder()
     #expect(builder.completionsEnabled == false)
   }
 
-  @Test("Builder enableLogging stores true")
-  func enableLoggingStoresTrue() {
+  @Test
+  func `Builder enableLogging stores true`() {
     let builder = FastMCP.builder().enableLogging()
     #expect(builder.loggingEnabled == true)
   }
 
-  @Test("Builder logging defaults to false")
-  func loggingDefaultsToFalse() {
+  @Test
+  func `Builder logging defaults to false`() {
     let builder = FastMCP.builder()
     #expect(builder.loggingEnabled == false)
   }
 
-  @Test("Builder http transport stores mode, host, port, endpoint")
-  func httpTransportStoresAllFields() {
+  @Test
+  func `Builder http transport stores mode, host, port, endpoint`() {
     let builder = FastMCP.builder().transport(
       .http(mode: .stateless, host: "0.0.0.0", port: 9090, endpoint: "/api/mcp"))
     guard case .http(let mode, let host, let port, let endpoint) = builder.transportConfig else {
@@ -255,8 +234,8 @@ struct BuilderTests {
     #expect(endpoint == "/api/mcp")
   }
 
-  @Test("Builder httpValidation stores allowedOrigins")
-  func httpValidationStoresAllowedOrigins() {
+  @Test
+  func `Builder httpValidation stores allowedOrigins`() {
     let builder = FastMCP.builder().httpValidation(allowedOrigins: [
       "https://example.com", "https://app.example.com",
     ])
@@ -266,28 +245,28 @@ struct BuilderTests {
     #expect(builder.httpAllowedOrigins?.contains("https://app.example.com") == true)
   }
 
-  @Test("Builder httpAllowedOrigins defaults to nil")
-  func httpAllowedOriginsDefaultsToNil() {
+  @Test
+  func `Builder httpAllowedOrigins defaults to nil`() {
     let builder = FastMCP.builder()
     #expect(builder.httpAllowedOrigins == nil)
   }
 
-  @Test("Builder onInitialize stores handler")
-  func onInitializeStoresHandler() {
+  @Test
+  func `Builder onInitialize stores handler`() {
     let builder = FastMCP.builder().onInitialize { clientInfo, capabilities in
       // no-op
     }
     #expect(builder.initializeHook != nil)
   }
 
-  @Test("Builder onInitialize defaults to nil")
-  func onInitializeDefaultsToNil() {
+  @Test
+  func `Builder onInitialize defaults to nil`() {
     let builder = FastMCP.builder()
     #expect(builder.initializeHook == nil)
   }
 
-  @Test("Builder chain works with all new options")
-  func builderChainWorksWithAllNewOptions() throws {
+  @Test
+  func `Builder chain works with all new options`() throws {
     var logger = Logger(label: "FullServer")
     logger.logLevel = .warning
 
@@ -335,8 +314,8 @@ struct BuilderTests {
 @Suite("CapabilitiesBuilder Tests")
 struct CapabilitiesBuilderTests {
 
-  @Test("Builds with completions and logging, no sampling")
-  func buildsWithCompletionsAndLogging() {
+  @Test
+  func `Builds with completions and logging, no sampling`() {
     let capabilities = CapabilitiesBuilder.build(
       hasTools: true,
       hasResources: true,
@@ -352,8 +331,8 @@ struct CapabilitiesBuilderTests {
     #expect(capabilities.logging != nil)
   }
 
-  @Test("Builds without completions and logging when not requested")
-  func buildsWithoutCompletionsAndLogging() {
+  @Test
+  func `Builds without completions and logging when not requested`() {
     let capabilities = CapabilitiesBuilder.build(
       hasTools: true,
       hasResources: false,
@@ -367,8 +346,8 @@ struct CapabilitiesBuilderTests {
     #expect(capabilities.logging == nil)
   }
 
-  @Test("Builds with no capabilities when nothing is enabled")
-  func buildsWithNoCapabilities() {
+  @Test
+  func `Builds with no capabilities when nothing is enabled`() {
     let capabilities = CapabilitiesBuilder.build(
       hasTools: false,
       hasResources: false

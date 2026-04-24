@@ -6,8 +6,8 @@ import Testing
 @Suite("HTTP Integration Tests")
 struct HTTPIntegrationTests {
 
-  @Test("HTTP transport enum stores configuration correctly")
-  func httpTransportConfiguration() {
+  @Test
+  func `HTTP transport enum stores configuration correctly`() {
     let transport = Transport.http(mode: .stateful, host: "127.0.0.1", port: 3000, endpoint: "/mcp")
 
     guard case .http(let mode, let host, let port, let endpoint) = transport else {
@@ -23,8 +23,8 @@ struct HTTPIntegrationTests {
     #expect(endpoint == "/mcp")
   }
 
-  @Test("HTTPMode defaults to stateful")
-  func httpModeDefault() {
+  @Test
+  func `HTTPMode defaults to stateful`() {
     // When using .http() with no mode argument, the default should be .stateful
     let transport = Transport.http()
 
@@ -38,8 +38,8 @@ struct HTTPIntegrationTests {
     }
   }
 
-  @Test("HTTP transport with custom port")
-  func httpCustomPort() {
+  @Test
+  func `HTTP transport with custom port`() {
     let transport = Transport.http(port: 9090)
 
     guard case .http(_, _, let port, _) = transport else {
@@ -49,8 +49,8 @@ struct HTTPIntegrationTests {
     #expect(port == 9090)
   }
 
-  @Test("HTTP transport with stateless mode")
-  func httpStatelessMode() {
+  @Test
+  func `HTTP transport with stateless mode`() {
     let transport = Transport.http(mode: .stateless)
 
     guard case .http(let mode, _, _, _) = transport else {
@@ -63,8 +63,8 @@ struct HTTPIntegrationTests {
     }
   }
 
-  @Test("HTTP transport with all custom parameters")
-  func httpAllCustomParameters() {
+  @Test
+  func `HTTP transport with all custom parameters`() {
     let transport = Transport.http(
       mode: .stateless, host: "0.0.0.0", port: 9090, endpoint: "/api/mcp")
 
@@ -81,8 +81,8 @@ struct HTTPIntegrationTests {
     #expect(endpoint == "/api/mcp")
   }
 
-  @Test("Builder with HTTP transport preserves all settings")
-  func builderWithHTTPTransport() {
+  @Test
+  func `Builder with HTTP transport preserves all settings`() {
     let builder = FastMCP.builder()
       .name("HTTP Test Server")
       .version("2.0.0")
@@ -123,8 +123,8 @@ struct HTTPIntegrationTests {
     #expect(builder.httpAllowedOrigins?.first == "https://example.com")
   }
 
-  @Test("HTTP transport default host is 127.0.0.1")
-  func httpDefaultHost() {
+  @Test
+  func `HTTP transport default host is 127.0.0.1`() {
     let transport = Transport.http()
 
     guard case .http(_, let host, _, _) = transport else {
@@ -134,8 +134,8 @@ struct HTTPIntegrationTests {
     #expect(host == "127.0.0.1")
   }
 
-  @Test("HTTP transport default port is 3000")
-  func httpDefaultPort() {
+  @Test
+  func `HTTP transport default port is 3000`() {
     let transport = Transport.http()
 
     guard case .http(_, _, let port, _) = transport else {
@@ -145,8 +145,8 @@ struct HTTPIntegrationTests {
     #expect(port == 3000)
   }
 
-  @Test("HTTP transport default endpoint is /mcp")
-  func httpDefaultEndpoint() {
+  @Test
+  func `HTTP transport default endpoint is /mcp`() {
     let transport = Transport.http()
 
     guard case .http(_, _, _, let endpoint) = transport else {
@@ -156,8 +156,8 @@ struct HTTPIntegrationTests {
     #expect(endpoint == "/mcp")
   }
 
-  @Test("HTTPMode enum has stateful case")
-  func httpModeStateful() {
+  @Test
+  func `HTTPMode enum has stateful case`() {
     let mode = HTTPMode.stateful
     guard case .stateful = mode else {
       Issue.record("Expected stateful mode")
@@ -165,8 +165,8 @@ struct HTTPIntegrationTests {
     }
   }
 
-  @Test("HTTPMode enum has stateless case")
-  func httpModeStateless() {
+  @Test
+  func `HTTPMode enum has stateless case`() {
     let mode = HTTPMode.stateless
     guard case .stateless = mode else {
       Issue.record("Expected stateless mode")

@@ -29,38 +29,32 @@ struct GreetingPromptUnitTests {
 
   let prompt = GreetingPrompt()
 
-  @Test
-  func promptHasCorrectName() {
+  @Test func `prompt has correct name`() {
     #expect(prompt.name == "greeting")
   }
 
-  @Test
-  func promptHasDescription() {
+  @Test func `prompt has description`() {
     #expect(prompt.description != nil)
     #expect(prompt.description?.contains("greeting") == true)
   }
 
-  @Test
-  func promptExposesArgumentSpecs() {
+  @Test func `prompt exposes argument specs`() {
     #expect(prompt.arguments.count == 2)
     #expect(prompt.arguments.contains { $0.name == "name" })
     #expect(prompt.arguments.contains { $0.name == "tone" })
   }
 
-  @Test
-  func returnsCasualMessagesWithName() async throws {
+  @Test func `returns casual messages with name`() async throws {
     let messages = try await prompt.getMessages(arguments: ["name": "Alice"])
     #expect(messages.count == 2)
   }
 
-  @Test
-  func returnsFormalMessagesWhenRequested() async throws {
+  @Test func `returns formal messages when requested`() async throws {
     let messages = try await prompt.getMessages(arguments: ["name": "Bob", "tone": "formal"])
     #expect(messages.count == 2)
   }
 
-  @Test
-  func returnsProfessionalMessagesWhenRequested() async throws {
+  @Test func `returns professional messages when requested`() async throws {
     let messages = try await prompt.getMessages(
       arguments: ["name": "Charlie", "tone": "professional"]
     )
@@ -73,18 +67,15 @@ struct MathToolUnitTests {
 
   let tool = MathTool()
 
-  @Test
-  func toolHasCorrectName() {
+  @Test func `tool has correct name`() {
     #expect(tool.name == "math")
   }
 
-  @Test
-  func toolHasDescription() {
+  @Test func `tool has description`() {
     #expect(tool.description.contains("math"))
   }
 
-  @Test
-  func addOperationReturnsCorrectResult() async throws {
+  @Test func `add operation returns correct result`() async throws {
     let content = try await execute(
       tool,
       arguments: ["operation": .string("add"), "a": .double(5), "b": .double(3)]
@@ -92,8 +83,7 @@ struct MathToolUnitTests {
     expectString(content, "Result: 8.0")
   }
 
-  @Test
-  func subtractOperationReturnsCorrectResult() async throws {
+  @Test func `subtract operation returns correct result`() async throws {
     let content = try await execute(
       tool,
       arguments: ["operation": .string("subtract"), "a": .double(10), "b": .double(3)]
@@ -101,8 +91,7 @@ struct MathToolUnitTests {
     expectString(content, "Result: 7.0")
   }
 
-  @Test
-  func multiplyOperationReturnsCorrectResult() async throws {
+  @Test func `multiply operation returns correct result`() async throws {
     let content = try await execute(
       tool,
       arguments: ["operation": .string("multiply"), "a": .double(4), "b": .double(5)]
@@ -110,8 +99,7 @@ struct MathToolUnitTests {
     expectString(content, "Result: 20.0")
   }
 
-  @Test
-  func divideOperationReturnsCorrectResult() async throws {
+  @Test func `divide operation returns correct result`() async throws {
     let content = try await execute(
       tool,
       arguments: ["operation": .string("divide"), "a": .double(20), "b": .double(4)]
@@ -119,8 +107,7 @@ struct MathToolUnitTests {
     expectString(content, "Result: 5.0")
   }
 
-  @Test
-  func divisionByZeroThrows() async throws {
+  @Test func `division by zero throws`() async throws {
     await #expect(throws: HubBridgeError.self) {
       _ = try await execute(
         tool,
@@ -129,8 +116,7 @@ struct MathToolUnitTests {
     }
   }
 
-  @Test
-  func additionWithNegativeNumbers() async throws {
+  @Test func `addition with negative numbers`() async throws {
     let content = try await execute(
       tool,
       arguments: ["operation": .string("add"), "a": .double(-5), "b": .double(-3)]
@@ -138,8 +124,7 @@ struct MathToolUnitTests {
     expectString(content, "Result: -8.0")
   }
 
-  @Test
-  func multiplicationByZero() async throws {
+  @Test func `multiplication by zero`() async throws {
     let content = try await execute(
       tool,
       arguments: ["operation": .string("multiply"), "a": .double(100), "b": .double(0)]
@@ -147,8 +132,7 @@ struct MathToolUnitTests {
     expectString(content, "Result: 0.0")
   }
 
-  @Test
-  func divisionWithDecimalResult() async throws {
+  @Test func `division with decimal result`() async throws {
     let content = try await execute(
       tool,
       arguments: ["operation": .string("divide"), "a": .double(7), "b": .double(2)]
@@ -162,13 +146,11 @@ struct WeatherToolUnitTests {
 
   let tool = WeatherTool()
 
-  @Test
-  func toolHasCorrectName() {
+  @Test func `tool has correct name`() {
     #expect(tool.name == "weather")
   }
 
-  @Test
-  func toolHasDescription() {
+  @Test func `tool has description`() {
     #expect(tool.description.contains("weather"))
   }
 
@@ -176,8 +158,7 @@ struct WeatherToolUnitTests {
     .object(["latitude": .double(latitude), "longitude": .double(longitude)])
   }
 
-  @Test
-  func returnsCelsiusWhenExplicitlyRequested() async throws {
+  @Test func `returns celsius when explicitly requested`() async throws {
     let content = try await execute(
       tool,
       arguments: [
@@ -192,8 +173,7 @@ struct WeatherToolUnitTests {
     #expect(text.contains("22°C"))
   }
 
-  @Test
-  func returnsFahrenheitWhenRequested() async throws {
+  @Test func `returns fahrenheit when requested`() async throws {
     let content = try await execute(
       tool,
       arguments: [
@@ -209,8 +189,7 @@ struct WeatherToolUnitTests {
     #expect(text.contains("72°F"))
   }
 
-  @Test
-  func includesWeatherCondition() async throws {
+  @Test func `includes weather condition`() async throws {
     let content = try await execute(
       tool,
       arguments: [
@@ -231,13 +210,11 @@ struct GreetingToolUnitTests {
 
   let tool = GreetingTool()
 
-  @Test
-  func toolHasCorrectName() {
+  @Test func `tool has correct name`() {
     #expect(tool.name == "greeting")
   }
 
-  @Test
-  func toolHasDescription() {
+  @Test func `tool has description`() {
     #expect(tool.description.contains("greeting"))
   }
 
@@ -247,8 +224,7 @@ struct GreetingToolUnitTests {
     return .object(fields)
   }
 
-  @Test
-  func returnsCasualGreeting() async throws {
+  @Test func `returns casual greeting`() async throws {
     let content = try await execute(
       tool,
       arguments: [
@@ -259,8 +235,7 @@ struct GreetingToolUnitTests {
     expectString(content, "Hey Alice!")
   }
 
-  @Test
-  func returnsFormalGreetingWhenRequested() async throws {
+  @Test func `returns formal greeting when requested`() async throws {
     let content = try await execute(
       tool,
       arguments: ["person": personValue(firstName: "Bob"), "tone": .string("formal")]
@@ -268,8 +243,7 @@ struct GreetingToolUnitTests {
     expectString(content, "Good day, Bob.")
   }
 
-  @Test
-  func returnsProfessionalGreetingWhenRequested() async throws {
+  @Test func `returns professional greeting when requested`() async throws {
     let content = try await execute(
       tool,
       arguments: [
@@ -280,8 +254,7 @@ struct GreetingToolUnitTests {
     expectString(content, "Hello Charlie Brown, how can I help you today?")
   }
 
-  @Test
-  func handlesSpecialCharactersInName() async throws {
+  @Test func `handles special characters in name`() async throws {
     let content = try await execute(
       tool,
       arguments: [
@@ -298,8 +271,7 @@ struct StructuredSearchToolUnitTests {
 
   let tool = StructuredSearchTool()
 
-  @Test
-  func bridgePublishesToolDescription() {
+  @Test func `bridge publishes tool description`() {
     let mapped = HubToolMapper.mapTool(tool)
     #expect(mapped.name == "structuredSearch")
     guard case .object(let fields) = mapped.inputSchema else {
@@ -314,8 +286,7 @@ struct StructuredSearchToolUnitTests {
     #expect(properties["query"]?.objectValue?["type"] == .string("string"))
   }
 
-  @Test
-  func returnsStructuredContent() async throws {
+  @Test func `returns structured content`() async throws {
     let content = try await execute(tool, arguments: ["query": .string("swift")])
     guard case .structure(let properties, _) = content.kind else {
       Issue.record("Expected structured GeneratedContent, got \(content.kind)")
@@ -325,8 +296,7 @@ struct StructuredSearchToolUnitTests {
     #expect(properties["resultCount"]?.jsonString == "2")
   }
 
-  @Test
-  func emptyQueryThrowsThroughBridge() async throws {
+  @Test func `empty query throws through bridge`() async throws {
     await #expect(throws: HubBridgeError.self) {
       _ = try await execute(tool, arguments: ["query": .string("")])
     }

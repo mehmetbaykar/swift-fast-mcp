@@ -6,8 +6,8 @@ import Testing
 @Suite("HubToolMapper Schema Tests")
 struct HubToolMapperSchemaTests {
 
-  @Test("WeatherTool input schema projects nested Arguments struct")
-  func weatherToolSchemaIsRealJSONSchema() {
+  @Test
+  func `WeatherTool input schema projects nested Arguments struct`() {
     let mapped = HubToolMapper.mapTool(WeatherTool())
 
     guard case .object(let root) = mapped.inputSchema else {

@@ -19,28 +19,24 @@ struct PromptDeduplicatorTests {
 
   let deduplicator = PromptDeduplicator()
 
-  @Test
-  func emptyInputsReturnEmptyResult() {
+  @Test func `empty inputs return empty result`() {
     let result = deduplicator.deduplicate([], adding: [])
     #expect(result.isEmpty)
   }
 
-  @Test
-  func existingPromptsArePreserved() {
+  @Test func `existing prompts are preserved`() {
     let existing: [any MCPPrompt] = [GreetingPrompt()]
     let result = deduplicator.deduplicate(existing, adding: [])
     #expect(result.count == 1)
   }
 
-  @Test
-  func newPromptsAreAddedToEmpty() {
+  @Test func `new prompts are added to empty`() {
     let newPrompts: [any MCPPrompt] = [GreetingPrompt()]
     let result = deduplicator.deduplicate([], adding: newPrompts)
     #expect(result.count == 1)
   }
 
-  @Test
-  func duplicatePromptsAreFilteredByName() {
+  @Test func `duplicate prompts are filtered by name`() {
     let existing: [any MCPPrompt] = [GreetingPrompt()]
     let newPrompts: [any MCPPrompt] = [GreetingPrompt()]
     let result = deduplicator.deduplicate(existing, adding: newPrompts)
@@ -53,14 +49,12 @@ struct ResourceDeduplicatorTests {
 
   let deduplicator = ResourceDeduplicator()
 
-  @Test
-  func emptyInputsReturnEmptyResult() {
+  @Test func `empty inputs return empty result`() {
     let result = deduplicator.deduplicate([], adding: [])
     #expect(result.isEmpty)
   }
 
-  @Test
-  func existingResourcesArePreserved() {
+  @Test func `existing resources are preserved`() {
     let existing: [any MCPResource] = [
       MockResource(uri: "file://a.txt", name: "A"),
       MockResource(uri: "file://b.txt", name: "B"),
@@ -69,8 +63,7 @@ struct ResourceDeduplicatorTests {
     #expect(result.count == 2)
   }
 
-  @Test
-  func newResourcesAreAddedToEmpty() {
+  @Test func `new resources are added to empty`() {
     let newResources: [any MCPResource] = [
       MockResource(uri: "file://a.txt", name: "A"),
       MockResource(uri: "file://b.txt", name: "B"),
@@ -79,8 +72,7 @@ struct ResourceDeduplicatorTests {
     #expect(result.count == 2)
   }
 
-  @Test
-  func uniqueResourcesAreCombined() {
+  @Test func `unique resources are combined`() {
     let existing: [any MCPResource] = [MockResource(uri: "file://a.txt", name: "A")]
     let newResources: [any MCPResource] = [MockResource(uri: "file://b.txt", name: "B")]
     let result = deduplicator.deduplicate(existing, adding: newResources)
@@ -91,8 +83,7 @@ struct ResourceDeduplicatorTests {
     #expect(uris.contains("file://b.txt"))
   }
 
-  @Test
-  func duplicateResourcesAreFilteredByURI() {
+  @Test func `duplicate resources are filtered by uri`() {
     let existing: [any MCPResource] = [MockResource(uri: "file://a.txt", name: "A")]
     let newResources: [any MCPResource] = [
       MockResource(uri: "file://a.txt", name: "Different Name"),
@@ -102,8 +93,7 @@ struct ResourceDeduplicatorTests {
     #expect(result.count == 2)
   }
 
-  @Test
-  func orderIsPreserved() {
+  @Test func `order is preserved`() {
     let existing: [any MCPResource] = [MockResource(uri: "file://a.txt", name: "A")]
     let newResources: [any MCPResource] = [
       MockResource(uri: "file://c.txt", name: "C"),

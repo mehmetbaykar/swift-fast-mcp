@@ -79,8 +79,7 @@ private struct TextEchoTool: SwiftAIHub.Tool {
 @Suite("HubToolAdapter Tool.Content Mapping")
 struct HubToolAdapterImageTests {
 
-  @Test
-  func imageDataPassesThroughAsImageContent() async throws {
+  @Test func `image data passes through as image content`() async throws {
     let adapter = try HubToolAdapter(tools: [ImageEchoTool()])
     let content = try await adapter.makeContent(name: "imageEcho", arguments: .object([:]))
 
@@ -93,8 +92,7 @@ struct HubToolAdapterImageTests {
     #expect(data == ImageEchoTool.fixtureData.base64EncodedString())
   }
 
-  @Test
-  func textPassesThroughAsTextContent() async throws {
+  @Test func `text passes through as text content`() async throws {
     let adapter = try HubToolAdapter(tools: [TextEchoTool()])
     let content = try await adapter.makeContent(name: "textEcho", arguments: .object([:]))
 
@@ -106,8 +104,7 @@ struct HubToolAdapterImageTests {
     #expect(text == "hello")
   }
 
-  @Test
-  func structuredOutputFallsBackToJSONText() async throws {
+  @Test func `structured output falls back to json text`() async throws {
     let adapter = try HubToolAdapter(tools: [StructuredEchoTool()])
     let content = try await adapter.makeContent(name: "structuredEcho", arguments: .object([:]))
 

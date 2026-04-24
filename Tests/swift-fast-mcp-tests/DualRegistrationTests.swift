@@ -202,8 +202,8 @@ struct DualRegistrationTests {
   // Struct tools are value types — there is no object identity to assert —
   // so the practical proof is that both copies share the same embedded
   // reference-typed dependency (CallRecorder) and produce equal output.
-  @Test("MCP and in-process paths dispatch the same registered @Tool")
-  func singleInstanceServesBothSurfaces() async throws {
+  @Test
+  func `MCP and in-process paths dispatch the same registered @Tool`() async throws {
     let recorder = CallRecorder()
     let echoTool = EchoTool(recorder: recorder)
 
@@ -295,8 +295,8 @@ struct DualRegistrationTests {
   // exposes `HubToolMapper.inputSchema(for:)`, which round-trips that same
   // schema through JSON (inlining $defs) into an MCP `Value`. Assert both
   // projections agree on the property list and required list.
-  @Test("Tool.parameters and HubToolMapper.inputSchema project the same property set")
-  func schemaParityAcrossSurfaces() throws {
+  @Test
+  func `Tool.parameters and HubToolMapper.inputSchema project the same property set`() throws {
     let recorder = CallRecorder()
     let echoTool = EchoTool(recorder: recorder)
 
@@ -360,8 +360,8 @@ struct DualRegistrationTests {
   //
   // Both shapes are correct for their channel; this test pins the CURRENT
   // contract so a regression on either side is caught.
-  @Test("Tool errors surface correctly on both surfaces (with expected shape difference)")
-  func errorParityAcrossSurfaces() async throws {
+  @Test
+  func `Tool errors surface correctly on both surfaces (with expected shape difference)`() async throws {
     let strictTool = StrictEchoTool()
     let adapter = try HubToolAdapter(tools: [strictTool])
 

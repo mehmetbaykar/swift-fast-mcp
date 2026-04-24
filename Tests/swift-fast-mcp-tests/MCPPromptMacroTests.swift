@@ -45,18 +45,15 @@ struct NumericPrompt {
 @Suite("MCPPrompt macro")
 struct MCPPromptMacroTests {
 
-  @Test
-  func derivedNameStripsPromptSuffixAndLowercasesFirst() {
+  @Test func `derived name strips prompt suffix and lowercases first`() {
     #expect(SamplePrompt().name == "sample")
   }
 
-  @Test
-  func descriptionIsPopulatedFromAttribute() {
+  @Test func `description is populated from attribute`() {
     #expect(SamplePrompt().description == "Sample prompt used by macro tests")
   }
 
-  @Test
-  func argumentsArrayReflectsPropertyAnnotations() {
+  @Test func `arguments array reflects property annotations`() {
     let args = SamplePrompt().arguments
     #expect(args.count == 2)
     #expect(args[0].name == "who")
@@ -66,8 +63,7 @@ struct MCPPromptMacroTests {
     #expect(args[1].required == false)
   }
 
-  @Test
-  func dispatchAssignsStringArgumentsAndCallsZeroArgGetMessages() async throws {
+  @Test func `dispatch assigns string arguments and calls zero arg get messages`() async throws {
     let messages = try await SamplePrompt().getMessages(
       arguments: ["who": "world", "formal": "true"]
     )
@@ -79,13 +75,11 @@ struct MCPPromptMacroTests {
     #expect(body == "Hi world formally")
   }
 
-  @Test
-  func explicitNameOverridesDerivation() {
+  @Test func `explicit name overrides derivation`() {
     #expect(NamedPrompt().name == "custom_name")
   }
 
-  @Test
-  func numericArgumentCoercion() async throws {
+  @Test func `numeric argument coercion`() async throws {
     let messages = try await NumericPrompt().getMessages(
       arguments: ["count": "42", "ratio": "1.5"]
     )
@@ -98,22 +92,19 @@ struct MCPPromptMacroTests {
 
   // C: required-arg validation. Previously the generated dispatcher
   // silently used the zero/default value for missing required args.
-  @Test
-  func missingRequiredArgThrows() async {
+  @Test func `missing required arg throws`() async {
     await #expect(throws: FastMCPError.self) {
       try await NumericPrompt().getMessages(arguments: [:])
     }
   }
 
-  @Test
-  func invalidRequiredArgThrows() async {
+  @Test func `invalid required arg throws`() async {
     await #expect(throws: FastMCPError.self) {
       try await NumericPrompt().getMessages(arguments: ["count": "not-a-number"])
     }
   }
 
-  @Test
-  func requiredStringMissingThrows() async {
+  @Test func `required string missing throws`() async {
     await #expect(throws: FastMCPError.self) {
       try await SamplePrompt().getMessages(arguments: [:])
     }
@@ -138,21 +129,18 @@ struct SampleResource {
 @Suite("MCPResource macro")
 struct MCPResourceMacroTests {
 
-  @Test
-  func uriIsPopulated() {
+  @Test func `uri is populated`() {
     #expect(SampleResource().uri == "test://sample")
   }
 
-  @Test
-  func nameDescriptionMimeTypeAreSynthesised() {
+  @Test func `name description mime type are synthesised`() {
     let r = SampleResource()
     #expect(r.name == "Sample")
     #expect(r.description == "Sample resource used by macro tests")
     #expect(r.mimeType == "text/plain")
   }
 
-  @Test
-  func contentBodyIsPreserved() {
+  @Test func `content body is preserved`() {
     let items = SampleResource().content
     #expect(items.count == 1)
     guard case .text(let text) = items[0].content else {

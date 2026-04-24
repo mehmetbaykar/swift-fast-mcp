@@ -31,8 +31,8 @@ extension FastMCPServerHandle {
 @Suite("CapabilitiesBuilder listChanged")
 struct CapabilitiesBuilderListChangedTests {
 
-  @Test("listChanged defaults to false")
-  func listChangedDefaultsToFalse() {
+  @Test
+  func `listChanged defaults to false`() {
     let capabilities = CapabilitiesBuilder.build(
       hasTools: true,
       hasResources: true,
@@ -44,8 +44,8 @@ struct CapabilitiesBuilderListChangedTests {
     #expect(capabilities.prompts?.listChanged == false)
   }
 
-  @Test("listChanged true is propagated to all capabilities")
-  func listChangedTrueIsPropagated() {
+  @Test
+  func `listChanged true is propagated to all capabilities`() {
     let capabilities = CapabilitiesBuilder.build(
       hasTools: true,
       hasResources: true,
@@ -58,8 +58,8 @@ struct CapabilitiesBuilderListChangedTests {
     #expect(capabilities.prompts?.listChanged == true)
   }
 
-  @Test("listChanged true only applies to enabled capabilities")
-  func listChangedOnlyAppliesWhenEnabled() {
+  @Test
+  func `listChanged true only applies to enabled capabilities`() {
     let capabilities = CapabilitiesBuilder.build(
       hasTools: true,
       hasResources: false,
@@ -78,21 +78,21 @@ struct CapabilitiesBuilderListChangedTests {
 @Suite("Builder serverHandle")
 struct BuilderServerHandleTests {
 
-  @Test("serverHandle defaults to nil")
-  func handleDefaultsToNil() {
+  @Test
+  func `serverHandle defaults to nil`() {
     let builder = FastMCP.builder()
     #expect(builder.handle == nil)
   }
 
-  @Test("serverHandle stores the handle")
-  func handleIsStored() {
+  @Test
+  func `serverHandle stores the handle`() {
     let handle = FastMCPServerHandle()
     let builder = FastMCP.builder().serverHandle(handle)
     #expect(builder.handle != nil)
   }
 
-  @Test("serverHandle preserves value semantics")
-  func handlePreservesValueSemantics() {
+  @Test
+  func `serverHandle preserves value semantics`() {
     let handle = FastMCPServerHandle()
     let original = FastMCP.builder()
     let modified = original.serverHandle(handle)
@@ -101,8 +101,8 @@ struct BuilderServerHandleTests {
     #expect(modified.handle != nil)
   }
 
-  @Test("Builder chain works with serverHandle")
-  func builderChainWithHandle() throws {
+  @Test
+  func `Builder chain works with serverHandle`() throws {
     let handle = FastMCPServerHandle()
     let builder = try FastMCP.builder()
       .name("Dynamic")
@@ -122,39 +122,39 @@ struct BuilderServerHandleTests {
 @Suite("FastMCPServerHandle Tools")
 struct ServerHandleToolTests {
 
-  @Test("starts with empty tools")
-  func startsEmpty() async {
+  @Test
+  func `starts with empty tools`() async {
     let handle = FastMCPServerHandle()
     let names = await handle.currentToolNames()
     #expect(names.isEmpty)
   }
 
-  @Test("configure seeds initial tools")
-  func configureSeedsTools() async throws {
+  @Test
+  func `configure seeds initial tools`() async throws {
     let handle = FastMCPServerHandle()
     try await handle.seed(tools: [WeatherTool()])
     let names = await handle.currentToolNames()
     #expect(names == ["weather"])
   }
 
-  @Test("addTool appends a tool")
-  func addToolAppends() async throws {
+  @Test
+  func `addTool appends a tool`() async throws {
     let handle = FastMCPServerHandle()
     try await handle.addTool(WeatherTool())
     let names = await handle.currentToolNames()
     #expect(names == ["weather"])
   }
 
-  @Test("addTools appends multiple tools")
-  func addToolsAppendsMultiple() async throws {
+  @Test
+  func `addTools appends multiple tools`() async throws {
     let handle = FastMCPServerHandle()
     try await handle.addTools([WeatherTool(), MathTool()])
     let names = await handle.currentToolNames()
     #expect(Set(names) == ["weather", "math"])
   }
 
-  @Test("addTool rejects duplicate tool-name registration")
-  func addToolRejectsDuplicates() async throws {
+  @Test
+  func `addTool rejects duplicate tool-name registration`() async throws {
     let handle = FastMCPServerHandle()
     try await handle.addTool(WeatherTool())
     await #expect(throws: HubBridgeError.self) {
@@ -162,8 +162,8 @@ struct ServerHandleToolTests {
     }
   }
 
-  @Test("removeTool removes by name")
-  func removeToolByName() async throws {
+  @Test
+  func `removeTool removes by name`() async throws {
     let handle = FastMCPServerHandle()
     try await handle.addTools([WeatherTool(), MathTool()])
     await handle.removeTool(named: "weather")
@@ -171,8 +171,8 @@ struct ServerHandleToolTests {
     #expect(names == ["math"])
   }
 
-  @Test("removeTool is no-op for unknown name")
-  func removeToolUnknownName() async throws {
+  @Test
+  func `removeTool is no-op for unknown name`() async throws {
     let handle = FastMCPServerHandle()
     try await handle.addTool(WeatherTool())
     await handle.removeTool(named: "nonexistent")
@@ -180,8 +180,8 @@ struct ServerHandleToolTests {
     #expect(names == ["weather"])
   }
 
-  @Test("removeTool then addTool works correctly")
-  func removeAndReAdd() async throws {
+  @Test
+  func `removeTool then addTool works correctly`() async throws {
     let handle = FastMCPServerHandle()
     try await handle.addTool(WeatherTool())
     await handle.removeTool(named: "weather")
@@ -194,23 +194,23 @@ struct ServerHandleToolTests {
 @Suite("FastMCPServerHandle Resources")
 struct ServerHandleResourceTests {
 
-  @Test("starts with empty resources")
-  func startsEmpty() async {
+  @Test
+  func `starts with empty resources`() async {
     let handle = FastMCPServerHandle()
     let resources = await handle.currentResources
     #expect(resources.isEmpty)
   }
 
-  @Test("configure seeds initial resources")
-  func configureSeedsResources() async throws {
+  @Test
+  func `configure seeds initial resources`() async throws {
     let handle = FastMCPServerHandle()
     try await handle.seed(resources: [ConfigResource()])
     let resources = await handle.currentResources
     #expect(resources.count == 1)
   }
 
-  @Test("addResource appends a resource")
-  func addResourceAppends() async {
+  @Test
+  func `addResource appends a resource`() async {
     let handle = FastMCPServerHandle()
     await handle.addResource(ConfigResource())
     let resources = await handle.currentResources
@@ -218,16 +218,16 @@ struct ServerHandleResourceTests {
     #expect(resources.first?.uri == "config://app/settings")
   }
 
-  @Test("addResources appends multiple resources")
-  func addResourcesAppendsMultiple() async {
+  @Test
+  func `addResources appends multiple resources`() async {
     let handle = FastMCPServerHandle()
     await handle.addResources([ConfigResource(), SystemInfoResource()])
     let resources = await handle.currentResources
     #expect(resources.count == 2)
   }
 
-  @Test("addResource deduplicates by URI")
-  func addResourceDeduplicates() async {
+  @Test
+  func `addResource deduplicates by URI`() async {
     let handle = FastMCPServerHandle()
     await handle.addResource(ConfigResource())
     await handle.addResource(ConfigResource())
@@ -235,8 +235,8 @@ struct ServerHandleResourceTests {
     #expect(resources.count == 1)
   }
 
-  @Test("removeResource removes by URI")
-  func removeResourceByURI() async {
+  @Test
+  func `removeResource removes by URI`() async {
     let handle = FastMCPServerHandle()
     await handle.addResources([ConfigResource(), SystemInfoResource()])
     await handle.removeResource(uri: "config://app/settings")
@@ -245,8 +245,8 @@ struct ServerHandleResourceTests {
     #expect(resources.first?.uri == "system://info")
   }
 
-  @Test("removeResource is no-op for unknown URI")
-  func removeResourceUnknownURI() async {
+  @Test
+  func `removeResource is no-op for unknown URI`() async {
     let handle = FastMCPServerHandle()
     await handle.addResource(ConfigResource())
     await handle.removeResource(uri: "nonexistent://uri")
@@ -258,23 +258,23 @@ struct ServerHandleResourceTests {
 @Suite("FastMCPServerHandle Prompts")
 struct ServerHandlePromptTests {
 
-  @Test("starts with empty prompts")
-  func startsEmpty() async {
+  @Test
+  func `starts with empty prompts`() async {
     let handle = FastMCPServerHandle()
     let prompts = await handle.currentPrompts
     #expect(prompts.isEmpty)
   }
 
-  @Test("configure seeds initial prompts")
-  func configureSeedsPrompts() async throws {
+  @Test
+  func `configure seeds initial prompts`() async throws {
     let handle = FastMCPServerHandle()
     try await handle.seed(prompts: [GreetingPrompt()])
     let prompts = await handle.currentPrompts
     #expect(prompts.count == 1)
   }
 
-  @Test("addPrompt appends a prompt")
-  func addPromptAppends() async {
+  @Test
+  func `addPrompt appends a prompt`() async {
     let handle = FastMCPServerHandle()
     await handle.addPrompt(GreetingPrompt())
     let prompts = await handle.currentPrompts
@@ -282,16 +282,16 @@ struct ServerHandlePromptTests {
     #expect(prompts.first?.name == "greeting")
   }
 
-  @Test("addPrompts appends multiple prompts")
-  func addPromptsAppendsMultiple() async {
+  @Test
+  func `addPrompts appends multiple prompts`() async {
     let handle = FastMCPServerHandle()
     await handle.addPrompts([GreetingPrompt()])
     let prompts = await handle.currentPrompts
     #expect(prompts.count == 1)
   }
 
-  @Test("addPrompt deduplicates by name")
-  func addPromptDeduplicates() async {
+  @Test
+  func `addPrompt deduplicates by name`() async {
     let handle = FastMCPServerHandle()
     await handle.addPrompt(GreetingPrompt())
     await handle.addPrompt(GreetingPrompt())
@@ -299,8 +299,8 @@ struct ServerHandlePromptTests {
     #expect(prompts.count == 1)
   }
 
-  @Test("removePrompt removes by name")
-  func removePromptByName() async {
+  @Test
+  func `removePrompt removes by name`() async {
     let handle = FastMCPServerHandle()
     await handle.addPrompt(GreetingPrompt())
     await handle.removePrompt(named: "greeting")
@@ -308,8 +308,8 @@ struct ServerHandlePromptTests {
     #expect(prompts.isEmpty)
   }
 
-  @Test("removePrompt is no-op for unknown name")
-  func removePromptUnknownName() async {
+  @Test
+  func `removePrompt is no-op for unknown name`() async {
     let handle = FastMCPServerHandle()
     await handle.addPrompt(GreetingPrompt())
     await handle.removePrompt(named: "nonexistent")
@@ -323,8 +323,8 @@ struct ServerHandlePromptTests {
 @Suite("FastMCPServerHandle Server Integration")
 struct ServerHandleIntegrationTests {
 
-  @Test("addTool re-registers handler on connected server")
-  func addToolReregistersHandler() async throws {
+  @Test
+  func `addTool re-registers handler on connected server`() async throws {
     let server = Server(
       name: "TestServer",
       version: "1.0.0",
@@ -342,8 +342,8 @@ struct ServerHandleIntegrationTests {
     #expect(Set(names) == ["weather", "math"])
   }
 
-  @Test("removeTool re-registers handler on connected server")
-  func removeToolReregistersHandler() async throws {
+  @Test
+  func `removeTool re-registers handler on connected server`() async throws {
     let server = Server(
       name: "TestServer",
       version: "1.0.0",
@@ -361,8 +361,8 @@ struct ServerHandleIntegrationTests {
     #expect(names == ["math"])
   }
 
-  @Test("addResource re-registers handler on connected server")
-  func addResourceReregistersHandler() async throws {
+  @Test
+  func `addResource re-registers handler on connected server`() async throws {
     let server = Server(
       name: "TestServer",
       version: "1.0.0",
@@ -380,8 +380,8 @@ struct ServerHandleIntegrationTests {
     #expect(resources.count == 1)
   }
 
-  @Test("addPrompt re-registers handler on connected server")
-  func addPromptReregistersHandler() async throws {
+  @Test
+  func `addPrompt re-registers handler on connected server`() async throws {
     let server = Server(
       name: "TestServer",
       version: "1.0.0",
@@ -399,8 +399,8 @@ struct ServerHandleIntegrationTests {
     #expect(prompts.count == 1)
   }
 
-  @Test("handle works with no registered servers")
-  func handleWorksWithoutServers() async throws {
+  @Test
+  func `handle works with no registered servers`() async throws {
     let handle = FastMCPServerHandle()
     try await handle.addTool(WeatherTool())
     await handle.addResource(ConfigResource())
@@ -415,8 +415,8 @@ struct ServerHandleIntegrationTests {
     #expect(prompts.count == 1)
   }
 
-  @Test("configure replaces all existing items")
-  func configureReplacesAll() async throws {
+  @Test
+  func `configure replaces all existing items`() async throws {
     let handle = FastMCPServerHandle()
     try await handle.addTool(WeatherTool())
     await handle.addResource(ConfigResource())

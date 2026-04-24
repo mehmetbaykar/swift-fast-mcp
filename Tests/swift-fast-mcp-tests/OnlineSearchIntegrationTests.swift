@@ -222,8 +222,8 @@ struct OnlineSearchIntegrationTests {
 
   // Test B — wire visibility. Asserts the MCP surface exposes `onlineSearch`
   // and keeps `getCurrentDate` out of `tools/list`. Runs on every CI.
-  @Test("MCP tools/list exposes only onlineSearch; getCurrentDate stays internal")
-  func onlineSearchIsTheOnlyMCPExposedTool() async throws {
+  @Test
+  func `MCP tools/list exposes only onlineSearch; getCurrentDate stays internal`() async throws {
     let adapter = try HubToolAdapter(tools: [OnlineSearchTool(llm: StubLanguageModel())])
     let names = await adapter.names()
 
@@ -236,8 +236,8 @@ struct OnlineSearchIntegrationTests {
   // responses: round 1 emits a tool_call for getCurrentDate; round 2 emits
   // the final assistant message (containing 2026). Exercises request build,
   // JSON decode, tool-call loop, and tool-output posting end-to-end.
-  @Test("OnlineSearchTool.execute runs tool-call loop against mocked OpenAI backend")
-  func onlineSearchToolRunsToolCallLoopAgainstMockedBackend() async throws {
+  @Test
+  func `OnlineSearchTool.execute runs tool-call loop against mocked OpenAI backend`() async throws {
     let firstRoundJSON = """
       {
         "id": "chatcmpl-mock1",

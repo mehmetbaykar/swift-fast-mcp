@@ -19,8 +19,8 @@ import Testing
 @Suite("Duplicate tool-name registration is rejected")
 struct DuplicateToolRegistrationTests {
 
-  @Test("HubToolAdapter(tools:) throws duplicateTool on batch collision")
-  func adapterInitRejectsDuplicateBatch() async throws {
+  @Test
+  func `HubToolAdapter(tools:) throws duplicateTool on batch collision`() async throws {
     #expect(throws: HubBridgeError.self) {
       _ = try HubToolAdapter(tools: [WeatherTool(), WeatherTool()])
     }
@@ -35,8 +35,8 @@ struct DuplicateToolRegistrationTests {
     }
   }
 
-  @Test("HubToolAdapter.register throws duplicateTool on dynamic collision")
-  func adapterRegisterRejectsDuplicate() async throws {
+  @Test
+  func `HubToolAdapter.register throws duplicateTool on dynamic collision`() async throws {
     let adapter = try HubToolAdapter(tools: [WeatherTool()])
 
     await #expect(throws: HubBridgeError.self) {
@@ -53,8 +53,8 @@ struct DuplicateToolRegistrationTests {
     }
   }
 
-  @Test("FastMCP.Builder.addTools surfaces duplicateTool through the builder chain")
-  func builderAddToolsRejectsDuplicate() throws {
+  @Test
+  func `FastMCP.Builder.addTools surfaces duplicateTool through the builder chain`() throws {
     // Same-batch collision.
     #expect(throws: HubBridgeError.self) {
       _ = try FastMCP.builder().addTools([WeatherTool(), WeatherTool()])
