@@ -233,23 +233,26 @@ public struct MCPPromptMacro: MemberMacro, ExtensionMacro {
           ? "copy.\(prop) = arguments[\(key)]"
           : "if let __v = arguments[\(key)] { copy.\(prop) = __v }"
       case "Bool":
+        // Parenthesized closures here avoid the trailing-closure-confusable
+        // warning when the non-optional branch wraps this expression in
+        // `if let __v = <expr> { ... }`.
         let expr =
-          "arguments[\(key)].map { $0.lowercased() == \"true\" }"
+          "arguments[\(key)].map({ $0.lowercased() == \"true\" })"
         return isOptional
           ? "copy.\(prop) = \(expr)"
           : "if let __v = \(expr) { copy.\(prop) = __v }"
       case "Int":
-        let expr = "arguments[\(key)].flatMap { Int($0) }"
+        let expr = "arguments[\(key)].flatMap({ Int($0) })"
         return isOptional
           ? "copy.\(prop) = \(expr)"
           : "if let __v = \(expr) { copy.\(prop) = __v }"
       case "Double":
-        let expr = "arguments[\(key)].flatMap { Double($0) }"
+        let expr = "arguments[\(key)].flatMap({ Double($0) })"
         return isOptional
           ? "copy.\(prop) = \(expr)"
           : "if let __v = \(expr) { copy.\(prop) = __v }"
       case "Float":
-        let expr = "arguments[\(key)].flatMap { Float($0) }"
+        let expr = "arguments[\(key)].flatMap({ Float($0) })"
         return isOptional
           ? "copy.\(prop) = \(expr)"
           : "if let __v = \(expr) { copy.\(prop) = __v }"

@@ -17,8 +17,8 @@ extension FastMCPServerHandle {
     tools: [any SwiftAIHub.Tool] = [],
     resources: [any MCPResource] = [],
     prompts: [any MCPPrompt] = []
-  ) async throws {
-    await configure(
+  ) throws {
+    configure(
       toolAdapter: try HubToolAdapter(tools: tools),
       resources: resources,
       prompts: prompts

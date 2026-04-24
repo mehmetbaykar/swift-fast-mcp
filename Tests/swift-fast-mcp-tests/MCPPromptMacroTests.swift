@@ -129,8 +129,8 @@ struct MCPResourceMacroTests {
   }
 
   @Test
-  func contentBodyIsPreserved() async throws {
-    let items = try await SampleResource().content
+  func contentBodyIsPreserved() {
+    let items = SampleResource().content
     #expect(items.count == 1)
     guard case .text(let text) = items[0].content else {
       Issue.record("expected text content")
