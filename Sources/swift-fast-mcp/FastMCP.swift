@@ -317,7 +317,18 @@ extension FastMCP {
           )
         }
 
-        try await httpServer.start()
+        let httpService = HTTPFastMCPService(
+          httpServer: httpServer,
+          logger: logger,
+          onStart: onStartHandler,
+          onShutdown: onShutdownHandler
+        )
+        let serviceGroup = ServiceGroup(
+          services: [httpService],
+          gracefulShutdownSignals: shutdownSignals,
+          logger: logger
+        )
+        try await serviceGroup.run()
 
       default:
         let server = Server(
