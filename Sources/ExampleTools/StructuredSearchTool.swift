@@ -14,18 +14,17 @@ public struct StructuredSearchTool {
     public let description: String
   }
 
-  @Generable
-  public struct Arguments {
-    @Parameter("Search query")
-    public var query: String
-  }
+  @Parameter("Search query")
+  public var query: String = ""
 
-  public func execute(_ arguments: Arguments) async throws -> SearchResult {
-    guard !arguments.query.isEmpty else {
+  public init() {}
+
+  public func execute() async throws -> SearchResult {
+    guard !query.isEmpty else {
       throw QueryError(description: "Query cannot be empty")
     }
     return SearchResult(
-      summary: "Found 2 results for \(arguments.query)",
+      summary: "Found 2 results for \(query)",
       resultCount: 2
     )
   }

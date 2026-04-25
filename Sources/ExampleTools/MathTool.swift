@@ -11,27 +11,26 @@ public struct MathTool {
     public let description: String
   }
 
-  @Generable
-  public struct Arguments {
-    @Parameter("Operation")
-    public var operation: MathOperation
+  @Parameter("Operation")
+  public var operation: MathOperation = .add
 
-    @Parameter("First operand")
-    public var a: Double
+  @Parameter("First operand")
+  public var a: Double = 0
 
-    @Parameter("Second operand")
-    public var b: Double
-  }
+  @Parameter("Second operand")
+  public var b: Double = 0
 
-  public func execute(_ arguments: Arguments) async throws -> String {
+  public init() {}
+
+  public func execute() async throws -> String {
     let result: Double
-    switch arguments.operation {
-    case .add: result = arguments.a + arguments.b
-    case .subtract: result = arguments.a - arguments.b
-    case .multiply: result = arguments.a * arguments.b
+    switch operation {
+    case .add: result = a + b
+    case .subtract: result = a - b
+    case .multiply: result = a * b
     case .divide:
-      guard arguments.b != 0 else { throw CalculationError(description: "Division by zero") }
-      result = arguments.a / arguments.b
+      guard b != 0 else { throw CalculationError(description: "Division by zero") }
+      result = a / b
     }
     return "Result: \(result)"
   }

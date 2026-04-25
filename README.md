@@ -57,14 +57,11 @@ import FastMCP
 
 @Tool("Get weather for a location")
 struct WeatherTool {
-    @Generable
-    struct Arguments {
-        @Parameter("City or coordinates")
-        var location: String
-    }
+    @Parameter("City or coordinates")
+    var location: String = ""
 
-    func execute(_ arguments: Arguments) async throws -> String {
-        "Weather in \(arguments.location): 22°C, Sunny"
+    func execute() async throws -> String {
+        "Weather in \(location): 22°C, Sunny"
     }
 }
 
