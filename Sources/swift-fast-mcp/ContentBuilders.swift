@@ -1,6 +1,3 @@
-// Portions of this file are ported from swift-mcp-toolkit (Apache-2.0).
-// See https://github.com/mehmetbaykar/swift-mcp-toolkit.
-
 /// A generic result builder for constructing content declaratively.
 ///
 /// This builder provides a flexible way to construct arrays of content items

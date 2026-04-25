@@ -1,6 +1,3 @@
-// Portions of this file are ported from swift-mcp-toolkit (Apache-2.0).
-// See https://github.com/mehmetbaykar/swift-mcp-toolkit.
-
 /// A strongly typed interface for exposing resources in a Model Context Protocol server.
 ///
 /// Conforming types define the URI for their resource and provide content using a declarative
