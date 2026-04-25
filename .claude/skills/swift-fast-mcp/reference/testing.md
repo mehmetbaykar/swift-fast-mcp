@@ -168,4 +168,4 @@ The builder is a value type, so assertions read its stored properties via
 `FastMCPAIBridge` is the public library that exposes `HubToolAdapter` and
 `HubToolMapper` for round-trip tests. `import FastMCP` re-exports
 `SwiftAIHub`, so a generated package does not need a direct swift-ai-hub
-dependency just to name `SwiftAIHub.Tool`.
+dependency to reference `SwiftAIHub.Tool`.

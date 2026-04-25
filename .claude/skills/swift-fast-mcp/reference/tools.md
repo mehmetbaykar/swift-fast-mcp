@@ -37,8 +37,8 @@ Rules enforced by `@Tool`:
   `PromptRepresentable`.
 - The description must be a string literal.
 - Plain stored properties on the tool struct are allowed for dependencies;
-  the macro only synthesizes `init()` when those properties already have
-  defaults or a user initializer exists.
+  the macro synthesizes `init()` only when no user initializer exists and all
+  stored properties can be initialized by an empty initializer.
 
 Derived values:
 
@@ -48,6 +48,9 @@ Derived values:
 | Wire `description` | The macro's string argument. |
 | `inputSchema` | Generated from `Arguments` by `@Generable`. |
 | `Output` | Inferred from `execute(_:)`. |
+
+The current `@Tool` macro has no `name:` argument and emits `name` from
+`Self.schema.name`. Rename the Swift type when the wire name needs to change.
 
 Plain stored properties on the tool struct that are *not* part of the nested
 `Arguments` type are treated as init-injected dependencies and stay invisible

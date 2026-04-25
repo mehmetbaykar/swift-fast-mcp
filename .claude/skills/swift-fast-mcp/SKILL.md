@@ -70,7 +70,7 @@ let package = Package(
 Notes:
 
 - A single dependency on `swift-fast-mcp` is enough for a generated server. FastMCP transitively brings in the official MCP SDK, swift-ai-hub, swift-service-lifecycle, and swift-nio.
-- The FastMCP package pins swift-ai-hub with `.package(url: "https://github.com/mehmetbaykar/swift-ai-hub", from: "0.1.0")` and depends on `.product(name: "SwiftAIHub", package: "swift-ai-hub")` in `Package.swift`.
+- The FastMCP package declares swift-ai-hub with `.package(url: "https://github.com/mehmetbaykar/swift-ai-hub", from: "0.1.0")` and depends on `.product(name: "SwiftAIHub", package: "swift-ai-hub")` in `Package.swift`.
 - `import FastMCP` re-exports `FastMCPAIBridge`, `SwiftAIHub`, `Logging`, and `UnixSignals` (`Sources/swift-fast-mcp/Exports.swift`), so user files only need `import FastMCP`.
 - Swift 6.2+, macOS 14+ to match swift-fast-mcp's own platform floor.
 
@@ -150,6 +150,8 @@ public struct WeatherTool {
 ```
 
 The `@Tool` macro derives the wire `name` by stripping a trailing `Tool` from the type name and lowercasing the first character (`WeatherTool` → `weather`). Description is the macro's string argument. The `Arguments` type must be a nested `@Generable struct Arguments`. Properties on the `Arguments` struct become schema fields; mark each with `@Parameter("…")` (or `@Guide(description:)`) for the description that reaches the wire.
+
+There is no current `@Tool` `name:` parameter. Rename the Swift type when the wire name must change.
 
 `execute(_:)` returns whatever you want the model to see. `String` flows through `GeneratedContent(kind: .string(...))`; `tools/call` serializes generated content as MCP text, so clients receive JSON string text for plain `String` returns. A custom `@Generable` return type flows out as a JSON-encoded text content block. See `docs/Tools.md` for the full wire shape and `../swift-ai-hub/docs/Macros.md` for the macro contract.
 
@@ -256,6 +258,8 @@ public struct GreetingPrompt {
 ```
 
 `@MCPPrompt(_:name:)` derives the wire `name` by stripping a trailing `Prompt` and lowercasing the first character (`GreetingPrompt` → `greeting`). Override with `name: "custom_name"`. Stored properties annotated with `@PromptArgument` become `PromptArgumentSpec` entries. The macro generates a dispatcher that decodes the raw `[String: String]` argument map and calls the user-declared `getMessages()`. Arguments are required unless the property is optional (`String?`) or has a default value.
+
+For non-optional non-primitive prompt arguments, provide a default value or a custom initializer; the synthesized empty initializer only covers primitive, optional, and array shapes.
 
 ## Dynamic Lists with `FastMCPServerHandle`
 

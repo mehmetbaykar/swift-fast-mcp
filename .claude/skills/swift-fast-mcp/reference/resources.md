@@ -3,7 +3,7 @@
 Resources are authored with the `@MCPResource` macro from
 `Sources/swift-fast-mcp/FastMCPMacros.swift` and implemented by
 `Sources/FastMCPMacros/MCPResourceMacro.swift`. The macro turns a struct into
-an `MCPResource` and lets you supply the body with the
+an `MCPResource`; the struct supplies its body with the
 `@ResourceContentBuilder` result builder. Full reference:
 [`docs/PromptsResources.md`](../../../../docs/PromptsResources.md).
 

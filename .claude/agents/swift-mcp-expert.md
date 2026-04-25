@@ -34,16 +34,17 @@ When invoked:
 
 ## Critical Rules
 
-- Always use `import FastMCP` — it re-exports `SwiftAIHub`, `Logging`, `UnixSignals`, and `FastMCPAIBridge` (`Sources/swift-fast-mcp/Exports.swift`)
-- Generated `Package.swift` files depend on `swift-fast-mcp` from `2.3.0`; FastMCP itself depends on swift-ai-hub from `0.1.0` using product `SwiftAIHub` from package `swift-ai-hub`
+- Always use `import FastMCP` — it re-exports `SwiftAIHub`, `Logging`, `UnixSignals`, and `FastMCPAIBridge` (`Sources/swift-fast-mcp/Exports.swift`). Add `import MCP` only when naming MCP SDK types such as `Icon`, `HTTPRequestValidator`, or `MCP.Transport`
+- Generated `Package.swift` files depend on `swift-fast-mcp` from `2.3.0`; FastMCP itself declares swift-ai-hub from `0.1.0` using product `SwiftAIHub` from package `swift-ai-hub`
 - Never reach for raw swift-sdk APIs (`Server`, `withMethodHandler`, `StdioTransport`) directly; the builder owns server construction
 - A `@Tool` struct must declare `nested @Generable struct Arguments` and `func execute(_ arguments: Arguments) async throws -> Output`
-- The wire `name` is derived: `WeatherTool` → `weather`, `MathTool` → `math`. Use the type name to drive the wire name; override only when needed
+- The wire `name` is derived: `WeatherTool` → `weather`, `MathTool` → `math`. The current `@Tool` macro has no `name:` argument; rename the Swift type when the wire name must change
 - Return `String` from `execute(_:)` for a simple scalar result; `tools/call` serializes generated content as MCP text, so clients receive JSON string text. Return any custom `@Generable` type for structured JSON content. There is no extra wrapper type
 - Use plain `throws` on `execute(_:)`. Errors flow through the bridge as `HubBridgeError.invalidArguments(...)` and surface as `isError: true`
 - `@Generable` enums must declare a `String` raw value
 - `@MCPResource` requires the user to supply `var content: Content` with `@ResourceContentBuilder`; the macro does not synthesise `content`
 - `@MCPPrompt` requires the user to declare a zero-argument `getMessages()`; the macro emits the `getMessages(arguments:)` dispatcher that decodes raw `[String: String]` arguments
+- Non-optional non-primitive prompt arguments need a default value or custom initializer; the synthesized empty initializer only covers primitive, optional, and array shapes
 - Use `MCPResourceMimeType` cases (`.applicationJSON`, `.textPlain`, `.other("custom/mime")`) for resource MIME types
 - `addTools(_:)` is `throws`; call it with `try`. The other `add…` methods are non-throwing and dedup silently
 - Under `.stdio`, route lifecycle messages through `Logger`. Never `print` from a hook — stdout carries JSON-RPC frames

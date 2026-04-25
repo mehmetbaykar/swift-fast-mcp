@@ -45,9 +45,12 @@ let builder = FastMCP.builder()
 `uri`, prompts by `name`).
 
 Generated server packages depend on `swift-fast-mcp` from `"2.3.0"`.
-FastMCP's own `Package.swift` depends on swift-ai-hub from `"0.1.0"` using
+FastMCP's own `Package.swift` declares swift-ai-hub from `"0.1.0"` using
 product `SwiftAIHub` from package `swift-ai-hub`, and
 `Sources/swift-fast-mcp/Exports.swift` re-exports it through `import FastMCP`.
+`MCP` itself is not re-exported; add `import MCP` when naming MCP SDK types
+such as `Icon`, `Client.Info`, `Client.Capabilities`, `HTTPRequestValidator`,
+or a custom `MCP.Transport`.
 
 ## `run()` execution order
 

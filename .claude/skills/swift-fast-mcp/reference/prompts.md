@@ -57,6 +57,10 @@ properties without defaults throw
 and `FastMCPError.invalidPromptArgumentValue(prompt:name:reason:)` when
 unparseable.
 
+For non-optional non-primitive prompt arguments, provide a default value or a
+custom initializer. The macro's synthesized empty initializer only has zero
+literals for `String`, `Bool`, numeric primitives, arrays, and optionals.
+
 ## Canonical Example
 
 From `Sources/ExampleTools/GreetingPrompt.swift`:

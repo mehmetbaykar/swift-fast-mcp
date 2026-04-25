@@ -51,6 +51,13 @@ element constraint, and dynamic `Regex(...)` patterns may not be observable
 on older deployment targets. See `../swift-ai-hub/docs/Macros.md` for the
 current cut.
 
+## Non-primitive prompt arguments need initialization
+
+`@MCPPrompt` synthesizes an empty `init()` when the prompt struct has no user
+initializer. For required non-optional custom raw-representable properties,
+declare a default value or provide an initializer; the synthesized initializer
+only has zero literals for primitive, optional, and array shapes.
+
 ## TLS is out of scope
 
 The HTTP transport is plaintext. Deploy behind a reverse proxy (nginx,
