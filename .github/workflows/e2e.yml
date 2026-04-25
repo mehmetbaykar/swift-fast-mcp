@@ -21,6 +21,7 @@ jobs:
   inspector-e2e:
     name: MCP Inspector E2E (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       matrix:
         os: [macos-26, ubuntu-latest]
