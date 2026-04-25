@@ -1,131 +1,55 @@
-# @Schemable Macro Guide
+# `@Generable` / `@Parameter` / `@Guide` Reference
 
-The `@Schemable` macro (from MCPToolkit) automatically generates JSON Schema from Swift types. It's used on `Parameters` structs in MCPTool and `Arguments` structs in MCPPrompt.
+Schemas in FastMCP come from swift-ai-hub's macros, re-exported through
+`import FastMCP`. The full contract lives in
+`../swift-ai-hub/docs/Macros.md`. Source declarations:
+`../swift-ai-hub/Sources/SwiftAIHub/Generation/Generable.swift`,
+`../swift-ai-hub/Sources/SwiftAIHub/Tools/ToolMacros.swift`, and
+`../swift-ai-hub/Sources/SwiftAIHubMacros/ParameterMacro.swift`.
 
-## Basic Struct
+## When to use which
+
+- `@Tool("description")` on the tool struct.
+- `@Generable` on every type the model produces or consumes: the nested
+  `Arguments` struct, any nested types it references, and any structured
+  return type from `execute(_:)`.
+- `@Parameter("description")` on stored properties of `Arguments`. It is a
+  marker macro that supplies the schema description at the tool boundary.
+- `@Guide(description:, …)` on stored properties of any `@Generable` type
+  that needs a description plus constraints (numeric `.minimum` / `.maximum`
+  / `.range`, array `.minimumCount` / `.maximumCount` / `.count`, string
+  `.constant` / `.anyOf` / `.pattern`).
+
+## Enums
+
+Enums must declare a `String` raw value (the schema renders them as
+`type: "string"` with `enum`):
 
 ```swift
-@Schemable
-public struct Parameters: Sendable {
-  public let name: String
-  public let age: Int
-  public let score: Double
-  public let active: Bool
-
-  public init(name: String, age: Int, score: Double, active: Bool) {
-    self.name = name
-    self.age = age
-    self.score = score
-    self.active = active
-  }
+@Generable
+public enum TemperatureUnit: String, CaseIterable {
+  case celsius, fahrenheit
 }
 ```
 
-Supported primitive types: `String`, `Int`, `Double`, `Bool`.
+## Optional and default-valued properties
 
-## Optional Properties
-
-Optional properties become optional in the generated JSON Schema (not in the `required` array):
+A property typed `T?` becomes non-required in the schema. A property with a
+default value also becomes non-required.
 
 ```swift
-@Schemable
-public struct Parameters: Sendable {
-  public let location: String        // required
-  public let unit: TemperatureUnit?  // optional
-
-  public init(location: String, unit: TemperatureUnit? = nil) {
-    self.location = location
-    self.unit = unit
-  }
+@Generable
+public struct Person {
+  @Guide(description: "First name") public var firstName: String
+  @Guide(description: "Last name (optional)") public var lastName: String?
 }
 ```
 
-## Enum Parameters
+## Generated members
 
-Enums must have `String` raw values and be annotated with `@Schemable`:
-
-```swift
-@Schemable
-public enum Operation: String, Sendable {
-  case add
-  case subtract
-  case multiply
-  case divide
-}
-```
-
-The raw string values become the enum values in the JSON Schema.
-
-Use enums as parameter types:
-
-```swift
-@Schemable
-public struct Parameters: Sendable {
-  public let operation: Operation
-  public let a: Double
-  public let b: Double
-
-  public init(operation: Operation, a: Double, b: Double) {
-    self.operation = operation
-    self.a = a
-    self.b = b
-  }
-}
-```
-
-## Array Parameters
-
-```swift
-@Schemable
-public struct Parameters: Sendable {
-  public let items: [String]
-
-  public init(items: [String]) {
-    self.items = items
-  }
-}
-```
-
-## Doc Comments as Descriptions
-
-Doc comments on properties become `description` fields in the generated JSON Schema:
-
-```swift
-@Schemable
-public struct Arguments {
-  /// Name of the person to greet
-  public let name: String
-  /// Use formal greeting style (optional, defaults to casual)
-  public let formal: Bool?
-
-  public init(name: String, formal: Bool? = nil) {
-    self.name = name
-    self.formal = formal
-  }
-}
-```
-
-## Required public init()
-
-For cross-module access (library target -> executable target), all `@Schemable` types need an explicit `public init()`:
-
-```swift
-@Schemable
-public struct Parameters: Sendable {
-  public let query: String
-
-  // Required for cross-module access
-  public init(query: String) {
-    self.query = query
-  }
-}
-```
-
-## Key Rules
-
-- Always add `@Schemable` to both structs and enums used as parameters
-- Enums must have `String` raw values
-- Structs used as MCPTool Parameters must conform to `Sendable`
-- Include `public init()` with all parameters for cross-module usage
-- Use `let` properties (not `var`) for immutable parameters
-- Optional properties use `?` suffix and have default `nil` in init
+For a struct, `@Generable` adds `init(_:)`, `generatedContent`,
+`generationSchema`, a memberwise initializer, prompt/instructions
+representations, and a `PartiallyGenerated` mirror for streaming. For an
+enum, it adds the same minus `PartiallyGenerated`. Conformances declared by
+the macro: `Generable`, `Codable`. See `../swift-ai-hub/docs/Macros.md` for
+the full expansion.

@@ -1,132 +1,134 @@
-# MCPPrompt Reference
+# `@MCPPrompt` Reference
 
-## Protocol
+Prompts in FastMCP are authored with `@MCPPrompt(_:name:)` and
+`@PromptArgument(_:name:required:)`. The macros come from swift-fast-mcp
+itself (`Sources/swift-fast-mcp/FastMCPMacros.swift`,
+`Sources/FastMCPMacros/MCPPromptMacro.swift`,
+`Sources/FastMCPMacros/PromptArgumentMacro.swift`). Full reference:
+[`docs/PromptsResources.md`](../../../../docs/PromptsResources.md).
+
+## Macro shape
 
 ```swift
-public protocol MCPPrompt: Sendable {
-  associatedtype Arguments: Decodable & Sendable
-  var name: String { get }
-  var description: String? { get }
-  func getMessages(arguments: Arguments) async throws -> Messages
-}
+@MCPPrompt("description", name: "optional_wire_name")
+@PromptArgument("description", name: "optional_arg_name", required: true)
 ```
 
-- `Messages` is a typealias for `[PromptMessage]`
-- Messages are created with `.user("...")` and `.assistant("...")`
+`@MCPPrompt` applies only to structs. It synthesises:
 
-## Simple Prompt
+- `public var name: String`
+- `public var description: String?`
+- `public var arguments: [PromptArgumentSpec]`
+- `public init()` (only when the struct has no user-declared init)
+- `public func getMessages(arguments: [String: String]) async throws -> Messages`
+- `extension … : MCPPrompt, Sendable`
+
+When `name:` is omitted, the macro strips a trailing `Prompt` from the type
+name and lowercases the first character. `GreetingPrompt` becomes
+`greeting`.
+
+The generated `getMessages(arguments:)` dispatcher decodes
+`@PromptArgument` values out of the raw `[String: String]` payload, copies
+them onto `self`, and calls a zero-argument `getMessages()` you declare.
+
+## `@PromptArgument`
+
+`@PromptArgument` is a peer marker macro — it emits no declarations.
+`@MCPPrompt` reads its attribute values when building
+`PromptArgumentSpec` entries.
+
+The `required` flag in the spec is computed from:
+
+1. Explicit `required:` argument when present.
+2. Otherwise non-required when the property is optional or has a default.
+3. Otherwise required.
+
+Argument decoding by Swift type:
+
+- `String` → raw value.
+- `Bool` → `value.lowercased() == "true"`.
+- `Int` / `Double` / `Float` → `T(value)`.
+- Other base types → `T(rawValue: value)`, so custom prompt argument types
+  must be string-backed raw-representable values.
+
+Optionals receive the optional parse result. Required non-optional non-`String`
+properties without defaults throw
+`FastMCPError.missingRequiredPromptArgument(prompt:name:)` when missing
+and `FastMCPError.invalidPromptArgumentValue(prompt:name:reason:)` when
+unparseable.
+
+## Canonical Example
+
+From `Sources/ExampleTools/GreetingPrompt.swift`:
 
 ```swift
 import FastMCP
 
-public struct GreetingPrompt: MCPPrompt {
-  public let name = "greeting"
-  public let description: String? = "A friendly greeting conversation starter"
+@Generable
+public enum GreetingTone: String, CaseIterable {
+  case casual, formal, professional
+}
 
-  public init() {}
+@MCPPrompt("A friendly greeting conversation starter")
+public struct GreetingPrompt {
+  @PromptArgument("Who to greet", name: "name")
+  public var who: String
 
-  @Schemable
-  public struct Arguments {
-    /// Name of the person to greet
-    public let name: String
-    /// Use formal greeting style (optional, defaults to casual)
-    public let formal: Bool?
+  @PromptArgument("Tone to use")
+  public var tone: GreetingTone = .casual
 
-    public init(name: String, formal: Bool? = nil) {
-      self.name = name
-      self.formal = formal
-    }
-  }
-
-  public func getMessages(arguments: Arguments) async throws -> Messages {
-    if arguments.formal == true {
+  public func getMessages() async throws -> Messages {
+    switch tone {
+    case .casual:
       return [
-        .user("You are a formal assistant helping \(arguments.name)."),
-        .assistant("Good day, \(arguments.name). How may I assist you today?"),
+        .user("You are a friendly assistant helping \(who)."),
+        .assistant("Hey \(who)! What can I help you with?"),
       ]
-    } else {
+    case .formal:
       return [
-        .user("You are a friendly assistant helping \(arguments.name)."),
-        .assistant("Hey \(arguments.name)! What can I help you with?"),
+        .user("You are a formal assistant helping \(who)."),
+        .assistant("Good day, \(who). How may I assist you today?"),
+      ]
+    case .professional:
+      return [
+        .user("You are a professional assistant helping \(who)."),
+        .assistant("Hello \(who), how can I help you today?"),
       ]
     }
   }
 }
 ```
 
-## Advanced Prompt with @PromptMessageBuilder
+The `name:` override on the first `@PromptArgument` changes the public
+argument name (`name`) without renaming the Swift property (`who`). The
+`tone` argument has a default, so it lands in `prompts/list` without
+`required: true`.
 
-Use the `@PromptMessageBuilder` result builder for more complex multi-message prompts:
+## `PromptMessage` factories
 
-```swift
-import FastMCP
+`PromptMessage` is `Sendable` and `ExpressibleByStringLiteral` (a string
+literal becomes a `.user` text message). Static factories cover every
+content type (`Sources/swift-fast-mcp/MCPPrompt.swift`):
 
-public struct CodeReviewPrompt: MCPPrompt {
-  public let name = "code_review"
-  public let description: String? = "Guide the assistant through a code review"
+- `.user(_:)` / `.assistant(_:)` — plain text.
+- `.user(imageData:mimeType:)` / `.assistant(imageData:mimeType:)` — base64
+  image payload plus MIME.
+- `.user(audioData:mimeType:)` / `.assistant(audioData:mimeType:)` — base64
+  audio payload plus MIME.
+- `.user(resource:mimeType:text:blob:)` /
+  `.assistant(resource:mimeType:text:blob:)` — embedded resource reference.
 
-  public init() {}
-
-  @Schemable
-  public struct Arguments {
-    /// The programming language of the code
-    public let language: String
-    /// Focus areas for the review (optional)
-    public let focusAreas: String?
-
-    public init(language: String, focusAreas: String? = nil) {
-      self.language = language
-      self.focusAreas = focusAreas
-    }
-  }
-
-  @PromptMessageBuilder
-  public func getMessages(arguments: Arguments) async throws -> Messages {
-    PromptMessage.user(
-      "You are an expert \(arguments.language) code reviewer."
-    )
-    PromptMessage.user(
-      "Please review the code I'm about to share. Focus on:"
-    )
-    PromptMessageGroup(role: .user) {
-      "1. Code correctness and potential bugs"
-      "2. Performance implications"
-      "3. Security vulnerabilities"
-      "4. Code style and best practices"
-    }
-    PromptMessage.assistant(
-      "I understand. Please share the \(arguments.language) code you'd like me to review\(arguments.focusAreas.map { ", with focus on \($0)" } ?? "")."
-    )
-  }
-}
-```
-
-### @PromptMessageBuilder Features
-
-- Annotate `getMessages` with `@PromptMessageBuilder` instead of returning an array
-- Use `PromptMessage.user(...)` and `PromptMessage.assistant(...)` as builder statements
-- `PromptMessageGroup(role:)` groups multiple string literals into messages with the same role
-- Doc comments on Arguments properties become schema descriptions
+The role enum has exactly `.user` and `.assistant`. The content enum has
+`.text(String)`, `.image(data:mimeType:)`, `.audio(data:mimeType:)`, and
+`.resource(uri:mimeType:text:blob:)`.
 
 ## Registration
 
 ```swift
 try await FastMCP.builder()
-  .addPrompts([
-    GreetingPrompt(),
-    CodeReviewPrompt(),
-  ])
+  .addPrompts([GreetingPrompt(), CodeReviewPrompt()])
   .run()
 ```
 
-Multiple `.addPrompts()` calls accumulate prompts. Duplicates (same `name`) are silently dropped — first registration wins.
-
-## Key Requirements
-
-- Arguments struct must be annotated with `@Schemable`
-- Arguments struct needs `public init()` for cross-module access
-- Prompt struct needs `public init() {}`
-- `name` and `description` are `let` properties
-- `description` type is `String?`
-- Doc comments on Arguments properties become JSON Schema descriptions
-- Return type is `Messages` (typealias for `[PromptMessage]`)
+`addPrompts(_:)` accumulates across calls. Duplicates by `name` are
+silently dropped; first registration wins.

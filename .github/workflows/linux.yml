@@ -3,8 +3,19 @@ name: Linux
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
@@ -13,12 +24,20 @@ jobs:
     container:
       image: swift:6.2-jammy
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+      - name: Cache SPM
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/org.swift.swiftpm
+            .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
       - name: toolkit-leak grep-gate
-        # docs/08 §verify: swift-mcp-toolkit must not be referenced by
-        # Package.swift / Package.resolved or by any `import` / `@Schemable`
-        # usage in Sources/Tests. Attribution comments in Apache-2.0 license
-        # notes are fine and not matched by these patterns.
+        # swift-mcp-toolkit must not be referenced by Package.swift /
+        # Package.resolved or by any `import` / `@Schemable` usage in
+        # Sources/Tests. Attribution comments are fine and not matched.
         run: |
           ! grep -E "swift-mcp-toolkit|MCPToolkit" Package.swift Package.resolved
           ! grep -rE "^[[:space:]]*import[[:space:]]+MCPToolkit|@Schemable" Sources Tests

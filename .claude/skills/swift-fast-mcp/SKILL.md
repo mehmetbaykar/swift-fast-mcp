@@ -6,7 +6,7 @@ argument-hint: '[ServerName] [tools,resources,prompts]'
 
 # FastMCP Server Generator
 
-FastMCP is a high-level Swift library for building Model Context Protocol servers. It wraps the official MCP Swift SDK with a fluent builder API, protocol-based tools/resources/prompts, automatic JSON Schema generation via `@Schemable`, structured tool output via `MCPStructuredTool`, and lifecycle management.
+FastMCP is a Swift library for building Model Context Protocol servers on top of the official MCP Swift SDK. Tools are authored with the `@Tool` / `@Generable` / `@Parameter` / `@Guide` macros from swift-ai-hub and re-exported by FastMCP. Prompts and resources are authored with FastMCP's own `@MCPPrompt` / `@PromptArgument` and `@MCPResource` / `@ResourceContentBuilder` macros. The fluent `FastMCP.builder()` wires the catalogue and runs the server under a `ServiceGroup` for graceful shutdown.
 
 ## Argument Parsing
 
@@ -46,7 +46,7 @@ let package = Package(
   name: "$ARGUMENTS[0]",
   platforms: [.macOS(.v14)],
   dependencies: [
-    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp.git", from: "2.2.0"),
+    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp.git", from: "2.3.0"),
   ],
   targets: [
     .target(
@@ -67,23 +67,27 @@ let package = Package(
 )
 ```
 
-Key points:
-- Single dependency on `swift-fast-mcp` — it transitively provides MCP, MCPToolkit, Logging, UnixSignals
-- Swift 6.2+, macOS 14+
-- Library target for tools/resources/prompts, executable target for entry point, test target
+Notes:
+
+- A single dependency on `swift-fast-mcp` is enough for a generated server. FastMCP transitively brings in the official MCP SDK, swift-ai-hub, swift-service-lifecycle, and swift-nio.
+- The FastMCP package pins swift-ai-hub with `.package(url: "https://github.com/mehmetbaykar/swift-ai-hub", from: "0.1.0")` and depends on `.product(name: "SwiftAIHub", package: "swift-ai-hub")` in `Package.swift`.
+- `import FastMCP` re-exports `FastMCPAIBridge`, `SwiftAIHub`, `Logging`, and `UnixSignals` (`Sources/swift-fast-mcp/Exports.swift`), so user files only need `import FastMCP`.
+- Swift 6.2+, macOS 14+ to match swift-fast-mcp's own platform floor.
 
 ## main.swift
 
 ```swift
 import FastMCP
 import $ARGUMENTS[0]Lib
-import Logging
 
 @main
 struct $ARGUMENTS[0] {
   static func main() async throws {
-    var logger = Logger(label: "$ARGUMENTS[0]")
-    logger.logLevel = .info
+    let logger: Logger = {
+      var log = Logger(label: "$ARGUMENTS[0]")
+      log.logLevel = .info
+      return log
+    }()
 
     try await FastMCP.builder()
       .name("$ARGUMENTS[0]")
@@ -103,21 +107,159 @@ struct $ARGUMENTS[0] {
       .logger(logger)
       .shutdownSignals([.sigterm, .sigint])
       .onStart {
-        print("Server started")
+        logger.info("Server started")
       }
       .onShutdown {
-        print("Server shutting down")
+        logger.info("Server shutting down")
       }
       .run()
   }
 }
 ```
 
-`import FastMCP` re-exports: MCP, MCPToolkit, Logging, UnixSignals. No other imports needed for tool/resource/prompt files.
+Under `.stdio`, stdout carries JSON-RPC frames — never `print` from a hook. Route lifecycle messages through the injected `Logger` (swift-log writes to stderr by default). Under `.http(...)`, either approach is safe.
 
-## Quick Reference: Dynamic Lists (listChanged)
+`addTools(_:)` is `throws` and rejects duplicates eagerly (`Sources/swift-fast-mcp/FastMCP.swift:80`), so call it with `try`.
 
-Attach a `FastMCPServerHandle` to add or remove tools/resources/prompts at runtime. Connected clients are automatically notified via MCP `listChanged` notifications.
+## Quick Reference: Tool
+
+```swift
+import FastMCP
+
+@Generable
+public enum TemperatureUnit: String, CaseIterable {
+  case celsius, fahrenheit
+}
+
+@Tool("Get current weather for a location")
+public struct WeatherTool {
+  @Generable
+  public struct Arguments {
+    @Parameter("Location name or coordinates")
+    public var location: String
+
+    @Parameter("Temperature unit")
+    public var unit: TemperatureUnit
+  }
+
+  public func execute(_ arguments: Arguments) async throws -> String {
+    let temp = arguments.unit == .celsius ? "22°C" : "72°F"
+    return "Weather in \(arguments.location): \(temp), Sunny"
+  }
+}
+```
+
+The `@Tool` macro derives the wire `name` by stripping a trailing `Tool` from the type name and lowercasing the first character (`WeatherTool` → `weather`). Description is the macro's string argument. The `Arguments` type must be a nested `@Generable struct Arguments`. Properties on the `Arguments` struct become schema fields; mark each with `@Parameter("…")` (or `@Guide(description:)`) for the description that reaches the wire.
+
+`execute(_:)` returns whatever you want the model to see. `String` flows through `GeneratedContent(kind: .string(...))`; `tools/call` serializes generated content as MCP text, so clients receive JSON string text for plain `String` returns. A custom `@Generable` return type flows out as a JSON-encoded text content block. See `docs/Tools.md` for the full wire shape and `../swift-ai-hub/docs/Macros.md` for the macro contract.
+
+## Quick Reference: Structured Output
+
+Return any `@Generable` type from `execute(_:)` to publish typed JSON content. Structured output is driven by the return type alone — no extra protocol or wrapper:
+
+```swift
+import FastMCP
+
+@Generable
+public struct SearchResult {
+  @Guide(description: "Human readable summary")
+  public var summary: String
+
+  @Guide(description: "Number of results")
+  public var resultCount: Int
+}
+
+@Tool("Return search results with typed structured output")
+public struct StructuredSearchTool {
+  public struct QueryError: Error, CustomStringConvertible {
+    public let description: String
+  }
+
+  @Generable
+  public struct Arguments {
+    @Parameter("Search query")
+    public var query: String
+  }
+
+  public func execute(_ arguments: Arguments) async throws -> SearchResult {
+    guard !arguments.query.isEmpty else {
+      throw QueryError(description: "Query cannot be empty")
+    }
+    return SearchResult(summary: "Found 2 results for \(arguments.query)", resultCount: 2)
+  }
+}
+```
+
+The bridge serialises the value through `GeneratedContent.jsonString` and emits a single `text` content block (`Sources/FastMCPAIBridge/HubToolAdapter.swift`). Errors thrown from `execute(_:)` are wrapped as `HubBridgeError.invalidArguments(...)` and surface as `isError: true` on the wire.
+
+## Quick Reference: Resource
+
+```swift
+import FastMCP
+
+@MCPResource(
+  "config://app/settings",
+  name: "App Settings",
+  description: "Application configuration and feature flags",
+  mimeType: .applicationJSON
+)
+public struct ConfigResource {
+  @ResourceContentBuilder
+  public var content: Content {
+    """
+    {"version": "1.0.0", "environment": "development"}
+    """
+  }
+}
+```
+
+The macro emits the `uri`, `name`, `description`, `mimeType`, and a `public init()`, plus `extension … : MCPResource, Sendable`. The struct supplies `content` itself with `@ResourceContentBuilder`. `Content` is `[ResourceContentItem]`, and a string literal converts directly. Use `MCPResourceMimeType` cases such as `.applicationJSON`, `.textPlain`, `.textMarkdown`, or `.other("custom/mime")`.
+
+## Quick Reference: Prompt
+
+```swift
+import FastMCP
+
+@Generable
+public enum GreetingTone: String, CaseIterable {
+  case casual, formal, professional
+}
+
+@MCPPrompt("A friendly greeting conversation starter")
+public struct GreetingPrompt {
+  @PromptArgument("Who to greet", name: "name")
+  public var who: String
+
+  @PromptArgument("Tone to use")
+  public var tone: GreetingTone = .casual
+
+  public func getMessages() async throws -> Messages {
+    switch tone {
+    case .casual:
+      return [
+        .user("You are a friendly assistant helping \(who)."),
+        .assistant("Hey \(who)! What can I help you with?"),
+      ]
+    case .formal:
+      return [
+        .user("You are a formal assistant helping \(who)."),
+        .assistant("Good day, \(who). How may I assist you today?"),
+      ]
+    case .professional:
+      return [
+        .user("You are a professional assistant helping \(who)."),
+        .assistant("Hello \(who), how can I help you today?"),
+      ]
+    }
+  }
+}
+```
+
+`@MCPPrompt(_:name:)` derives the wire `name` by stripping a trailing `Prompt` and lowercasing the first character (`GreetingPrompt` → `greeting`). Override with `name: "custom_name"`. Stored properties annotated with `@PromptArgument` become `PromptArgumentSpec` entries. The macro generates a dispatcher that decodes the raw `[String: String]` argument map and calls the user-declared `getMessages()`. Arguments are required unless the property is optional (`String?`) or has a default value.
+
+## Dynamic Lists with `FastMCPServerHandle`
+
+Attach a `FastMCPServerHandle` to mutate the tool/resource/prompt catalogue after `run()` starts. Connected clients receive `notifications/{tools,resources,prompts}/list_changed` automatically.
 
 ```swift
 import FastMCP
@@ -132,160 +274,55 @@ Task {
     .run()
 }
 
-// Later, from another task:
-await handle.addTool(MathTool())
-await handle.removeTool(named: "get_weather")
+// Later, from any task:
+try await handle.addTool(MathTool())
+await handle.removeTool(named: "weather")
 await handle.addResource(ConfigResource())
 await handle.removeResource(uri: "config://app/settings")
 await handle.addPrompt(GreetingPrompt())
 await handle.removePrompt(named: "greeting")
 ```
 
-When a handle is attached:
-- `listChanged: true` is advertised in server capabilities for tools, resources, and prompts
-- All three capabilities are advertised even if the initial list is empty (items can be added later)
-- Works with all transports: stdio, HTTP (stateful & stateless), inMemory, custom
-- For HTTP stateful, new sessions get the current list from the handle; existing sessions are re-registered and notified
+When a handle is attached, `listChanged: true` is advertised on every capability and all three (tools/resources/prompts) are advertised even when empty. Works with stdio, HTTP (stateful and stateless), in-memory, and custom transports. See `docs/DynamicServers.md` for the per-session HTTP flow.
 
 ## Deduplication Rules
 
-- **Tools**: deduplicated by `name`. First registration wins.
-- **Resources**: deduplicated by `uri`. First registration wins.
-- **Prompts**: deduplicated by `name`. First registration wins.
-- Duplicates are silently dropped (no warning logged).
-
-## Quick Reference: Tool
-
-```swift
-import FastMCP
-
-public struct GreetTool: MCPTool {
-  public let name = "greet"
-  public let description: String? = "Generate a greeting"
-  public var annotations: Tool.Annotations {
-    Tool.Annotations(readOnlyHint: true, idempotentHint: true)
-  }
-
-  public init() {}
-
-  @Schemable
-  public struct Parameters: Sendable {
-    public let name: String
-    public init(name: String) { self.name = name }
-  }
-
-  public func call(with arguments: Parameters) async throws(ToolError) -> Content {
-    [ToolContentItem(text: "Hello, \(arguments.name)!")]
-  }
-}
-```
-
-## Quick Reference: Structured Tool
-
-```swift
-import FastMCP
-
-public struct SearchTool: MCPStructuredTool {
-  public typealias Output = SearchResult
-
-  public let name = "search"
-  public let description: String? = "Return structured search results"
-
-  public init() {}
-
-  @Schemable
-  public struct Parameters: Sendable {
-    public let query: String
-    public init(query: String) { self.query = query }
-  }
-
-  @Schemable
-  public struct SearchResult: Codable, Sendable {
-    public let summary: String
-    public let resultCount: Int
-
-    public init(summary: String, resultCount: Int) {
-      self.summary = summary
-      self.resultCount = resultCount
-    }
-  }
-
-  public func callStructured(with arguments: Parameters) async throws(ToolError)
-    -> StructuredToolResult<SearchResult>
-  {
-    let summary = "Found 2 results for \(arguments.query)"
-    return StructuredToolResult(
-      structuredContent: SearchResult(summary: summary, resultCount: 2)
-    ) {
-      ToolContentItem(text: summary)
-    }
-  }
-}
-```
-
-Use `MCPStructuredTool` when the client needs typed data in `structuredContent` and an
-`outputSchema` published through `tools/list`. Plain `MCPTool` is still the right choice for
-content-only tools.
-
-## Quick Reference: Resource
-
-```swift
-import FastMCP
-
-public struct ConfigResource: MCPResource {
-  public let uri = "config://app/settings"
-  public let name = "App Settings"
-  public let description: String? = "Application configuration"
-  public let mimeType: String? = "application/json"
-
-  public init() {}
-
-  public var content: Content {
-    """
-    {"version": "1.0.0", "environment": "development"}
-    """
-  }
-}
-```
-
-## Quick Reference: Prompt
-
-```swift
-import FastMCP
-
-public struct GreetingPrompt: MCPPrompt {
-  public let name = "greeting"
-  public let description: String? = "A friendly greeting"
-
-  public init() {}
-
-  @Schemable
-  public struct Arguments {
-    public let name: String
-    public init(name: String) { self.name = name }
-  }
-
-  public func getMessages(arguments: Arguments) async throws -> Messages {
-    [
-      .user("You are a friendly assistant helping \(arguments.name)."),
-      .assistant("Hey \(arguments.name)! What can I help you with?"),
-    ]
-  }
-}
-```
+- **Tools**: `addTools(_:)` and the handle's `addTool` / `addTools` both throw `HubBridgeError.duplicateTool(name:)` on a duplicate name. Failures fire before any partial mutation.
+- **Resources**: deduplicated by `uri`. Duplicates are silently dropped, first registration wins.
+- **Prompts**: deduplicated by `name`. Duplicates are silently dropped, first registration wins.
 
 ## Reference Files
 
-For detailed patterns and API reference, load files from the `reference/` directory:
+- [reference/tools.md](reference/tools.md) — `@Tool` macro, `Arguments`, `execute(_:)`, structured returns, errors
+- [reference/resources.md](reference/resources.md) — `@MCPResource`, `@ResourceContentBuilder`, `MCPResourceMimeType`
+- [reference/prompts.md](reference/prompts.md) — `@MCPPrompt`, `@PromptArgument`, `PromptMessage` factories
+- [reference/schemable.md](reference/schemable.md) — `@Generable` / `@Parameter` / `@Guide` reference
+- [reference/builder-api.md](reference/builder-api.md) — every `FastMCP.Builder` method and its default
+- [reference/transport.md](reference/transport.md) — pointer to `docs/Transports.md`
+- [reference/testing.md](reference/testing.md) — Swift Testing patterns for tools, resources, prompts
+- [reference/limitations.md](reference/limitations.md) — known constraints
 
-- [reference/tools.md](reference/tools.md) — MCPTool, MCPStructuredTool, ToolError, enum parameters, optional params
-- [reference/resources.md](reference/resources.md) — MCPResource protocol, async content, MIME types
-- [reference/prompts.md](reference/prompts.md) — MCPPrompt protocol, @PromptMessageBuilder, typed arguments
-- [reference/schemable.md](reference/schemable.md) — @Schemable macro usage, enum schemas, optional params, nested types
-- [reference/builder-api.md](reference/builder-api.md) — Complete FastMCP.builder() method reference, all options and defaults
-- [reference/testing.md](reference/testing.md) — Swift Testing unit and integration tests
-- [reference/transport.md](reference/transport.md) — Transport options: .stdio, .http(), .inMemory, .custom
-- [reference/limitations.md](reference/limitations.md) — Known constraints and workarounds
+Authoritative source files for cross-checking:
+
+- `Sources/swift-fast-mcp/FastMCP.swift` — builder API
+- `Sources/swift-fast-mcp/ServerHandle.swift` — dynamic catalogue API
+- `Sources/swift-fast-mcp/MCPPrompt.swift` — prompt protocol and message types
+- `Sources/swift-fast-mcp/MCPResource.swift` — resource protocol and content builder
+- `Sources/swift-fast-mcp/Transport.swift` — `.stdio`, `.http`, `.inMemory`, `.custom`
+- `Sources/swift-fast-mcp/MCPResourceMimeType.swift` — resource MIME enum
+- `Sources/ExampleTools/WeatherTool.swift`
+- `Sources/ExampleTools/MathTool.swift`
+- `Sources/ExampleTools/GreetingTool.swift`
+- `Sources/ExampleTools/ConfigResource.swift`
+- `Sources/ExampleTools/GreetingPrompt.swift`
+- `Sources/ExampleTools/StructuredSearchTool.swift`
+- `docs/Tools.md`
+- `docs/PromptsResources.md`
+- `docs/Transports.md`
+- `docs/DynamicServers.md`
+- `../swift-ai-hub/docs/Macros.md` for the hub macros
+- `../swift-ai-hub/Sources/SwiftAIHub/Tools/ToolMacros.swift`
+- `../swift-ai-hub/Sources/SwiftAIHubMacros/ToolMacro.swift`
 
 ## Claude Desktop Integration
 

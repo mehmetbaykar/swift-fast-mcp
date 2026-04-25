@@ -1,201 +1,171 @@
 # Testing Patterns
 
-All tests use Swift Testing (`import Testing`), not XCTest.
+All tests use Swift Testing (`import Testing`), not XCTest. The patterns
+below mirror `Tests/swift-fast-mcp-tests/ToolUnitTests.swift`,
+`Tests/swift-fast-mcp-tests/BuilderTests.swift`, and
+`Tests/swift-fast-mcp-tests/MCPPromptMacroTests.swift`.
 
-## Unit Testing Tools
+## Tools — through the bridge
 
-Test tools directly by calling `call(arguments:)` with a dictionary:
+Tools are exposed to MCP via `HubToolAdapter` (the same path
+`tools/call` uses). Round-trip a tool through the adapter and assert on the
+`GeneratedContent` it produces.
 
 ```swift
 import ExampleTools
+import FastMCPAIBridge
 import MCP
-import MCPToolkit
 import Testing
 
 @testable import FastMCP
 
-private func textContent(_ text: String) -> Tool.Content {
-  .text(text: text, annotations: nil, _meta: nil)
+private func execute(
+  _ tool: any SwiftAIHub.Tool,
+  arguments: [String: Value]
+) async throws -> GeneratedContent {
+  let adapter = try HubToolAdapter(tools: [tool])
+  return try await adapter.execute(name: tool.name, arguments: .object(arguments))
 }
 
 @Suite("MathTool Unit Tests")
 struct MathToolUnitTests {
   let tool = MathTool()
 
-  @Test
-  func addOperationReturnsCorrectResult() async throws {
-    let result = try await tool.call(arguments: [
-      "operation": .string("add"),
-      "a": .double(5),
-      "b": .double(3),
-    ])
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Result: 8.0")])
+  @Test func `tool has correct name`() {
+    #expect(tool.name == "math")
   }
 
-  @Test
-  func divisionByZeroReturnsError() async throws {
-    let result = try await tool.call(arguments: [
-      "operation": .string("divide"),
-      "a": .double(10),
-      "b": .double(0),
-    ])
-    #expect(result.isError == true)
-  }
-}
-```
-
-### Key Patterns
-
-- Call `tool.call(arguments:)` with a `[String: MCP.Value]` dictionary
-- String values: `.string("value")`
-- Number values: `.double(5)` or `.int(5)` as appropriate
-- Boolean values: `.bool(true)`
-- Check `result.isError != true` for success, `result.isError == true` for error
-- For exact content equality, compare against `.text(text: ..., annotations: nil, _meta: nil)`
-- For flexible assertions, pattern-match the text payload:
-
-```swift
-switch result.content.first {
-case .some(.text(text: let text, annotations: _, _meta: _)):
-  #expect(text.contains("expected"))
-default:
-  Issue.record("Expected text content")
-}
-```
-
-## Unit Testing Structured Tools
-
-Structured tools can assert both content and `structuredContent`:
-
-```swift
-@Suite("StructuredSearchTool Unit Tests")
-struct StructuredSearchToolUnitTests {
-  let tool = StructuredSearchTool()
-
-  @Test
-  func publishesOutputSchema() {
-    let sdkTool = tool.toTool()
-    #expect(sdkTool.outputSchema != nil)
-  }
-
-  @Test
-  func returnsContentAndStructuredContent() async throws {
-    let result = try await tool.call(arguments: [
-      "query": .string("swift")
-    ])
-
-    #expect(result.isError != true)
-    #expect(result.content == [textContent("Found 2 results for swift")])
-    #expect(
-      result.structuredContent
-        == .object([
-          "summary": .string("Found 2 results for swift"),
-          "resultCount": .int(2),
-        ])
+  @Test func `add operation returns correct result`() async throws {
+    let content = try await execute(
+      tool,
+      arguments: ["operation": .string("add"), "a": .double(5), "b": .double(3)]
     )
+    guard case .string(let text) = content.kind else {
+      Issue.record("Expected string GeneratedContent, got \(content.kind)")
+      return
+    }
+    #expect(text == "Result: 8.0")
   }
 
-  @Test
-  func returnsErrorWithoutStructuredContent() async throws {
-    let result = try await tool.call(arguments: [
-      "query": .string("")
-    ])
-
-    #expect(result.isError == true)
-    #expect(result.structuredContent == nil)
+  @Test func `division by zero throws`() async throws {
+    await #expect(throws: HubBridgeError.self) {
+      _ = try await execute(
+        tool,
+        arguments: ["operation": .string("divide"), "a": .double(10), "b": .double(0)]
+      )
+    }
   }
 }
 ```
 
-## Unit Testing Prompts
+Notes:
 
-Test prompts by calling `getMessages(arguments:)` with typed arguments:
+- MCP argument values use the `MCP.Value` cases: `.string`, `.double`,
+  `.int`, `.bool`, `.object`, `.array`, `.null`.
+- Errors thrown from `execute(_:)` surface through the bridge as
+  `HubBridgeError.invalidArguments(...)`. Assert with
+  `#expect(throws: HubBridgeError.self)`.
+- For tools that return a `@Generable` type, the bridge emits
+  `.structure(...)` instead of `.string(...)`:
+
+```swift
+@Test func `returns structured content`() async throws {
+  let content = try await execute(StructuredSearchTool(), arguments: ["query": .string("swift")])
+  guard case .structure(let properties, _) = content.kind else {
+    Issue.record("Expected structured GeneratedContent, got \(content.kind)")
+    return
+  }
+  #expect(properties["resultCount"]?.jsonString == "2")
+}
+```
+
+## Tools — schema assertions
+
+`HubToolMapper.mapTool(_:)` produces the `MCP.Tool` published to
+`tools/list`. Assert on its `inputSchema` to lock in the wire shape:
+
+```swift
+@Test func `bridge publishes tool description`() {
+  let mapped = HubToolMapper.mapTool(StructuredSearchTool())
+  #expect(mapped.name == "structuredSearch")
+  guard case .object(let fields) = mapped.inputSchema else {
+    Issue.record("Expected object input schema")
+    return
+  }
+  #expect(fields["type"] == .string("object"))
+}
+```
+
+## Prompts
+
+Prompts decode arguments out of a raw `[String: String]` dictionary —
+that is the wire format on `prompts/get`. Assert by calling
+`getMessages(arguments:)` directly:
 
 ```swift
 @Suite("GreetingPrompt Unit Tests")
 struct GreetingPromptUnitTests {
   let prompt = GreetingPrompt()
 
-  @Test
-  func returnsFormalMessagesWhenRequested() async throws {
-    let messages = try await prompt.getMessages(
-      arguments: GreetingPrompt.Arguments(name: "Bob", formal: true)
-    )
+  @Test func `prompt has correct name`() {
+    #expect(prompt.name == "greeting")
+  }
+
+  @Test func `prompt exposes argument specs`() {
+    #expect(prompt.arguments.count == 2)
+    #expect(prompt.arguments.contains { $0.name == "name" })
+    #expect(prompt.arguments.contains { $0.name == "tone" })
+  }
+
+  @Test func `returns formal messages when requested`() async throws {
+    let messages = try await prompt.getMessages(arguments: ["name": "Bob", "tone": "formal"])
     #expect(messages.count == 2)
   }
-
-  @Test
-  func promptHasArguments() {
-    let sdkPrompt = prompt.toPrompt()
-    #expect(sdkPrompt.arguments?.count == 2)
-  }
 }
 ```
 
-## Integration Testing with InMemoryTransport
+## Resources
 
-Use `.transport(.inMemory)` to test builder configuration without I/O:
+For a static resource, evaluate `content` and inspect the
+`ResourceContentItem` array:
 
 ```swift
-@Suite("Integration Tests")
-struct IntegrationTests {
-  @Test
-  func serverStartsWithInMemoryTransport() async throws {
-    let builder = FastMCP.builder()
-      .name("TestServer")
-      .addTools([GreetingTool(), StructuredSearchTool()])
-      .transport(.inMemory)
-
-    guard case .inMemory = builder.transportConfig else {
-      Issue.record("Expected inMemory transport")
-      return
-    }
-    #expect(builder.tools.count == 2)
-  }
+@Test func `config resource returns json`() async throws {
+  let resource = ConfigResource()
+  let items = try await resource.content
+  #expect(!items.isEmpty)
 }
 ```
 
-## Testing Builder Configuration
+## Builder configuration
+
+The builder is a value type, so assertions read its stored properties via
+`@testable import FastMCP`:
 
 ```swift
-@Suite("FastMCP Builder Tests")
-struct BuilderTests {
-  @Test
-  func builderChainWorksWithAllOptions() {
-    var logger = Logger(label: "TestServer")
-    logger.logLevel = .warning
-
-    let builder = FastMCP.builder()
-      .name("TestServer")
-      .version("3.0.0")
-      .addTools([GreetingTool(), StructuredSearchTool()])
-      .addPrompts([GreetingPrompt()])
-      .enableCompletions()
-      .enableLogging()
-      .transport(.stdio)
-      .logger(logger)
-      .shutdownSignals([.sigterm])
-      .onInitialize { _, _ in }
-      .onStart {}
-      .onShutdown {}
-
-    #expect(builder.tools.count == 2)
-    #expect(builder.prompts.count == 1)
-    #expect(builder.completionsEnabled == true)
-    #expect(builder.loggingEnabled == true)
-    #expect(builder.customLogger != nil)
-  }
+@Test func `builder accumulates tools across calls`() throws {
+  let builder = try FastMCP.builder()
+    .name("TestServer")
+    .addTools([WeatherTool()])
+    .addTools([MathTool()])
+  #expect(builder.hubTools.count == 2)
 }
 ```
 
-## Test Target Setup
-
-In `Package.swift`, the test target depends on both `FastMCP` and your library target:
+## Test target setup
 
 ```swift
 .testTarget(
   name: "MyServerTests",
-  dependencies: ["FastMCP", "MyServerLib"]
+  dependencies: [
+    .product(name: "FastMCP", package: "swift-fast-mcp"),
+    .product(name: "FastMCPAIBridge", package: "swift-fast-mcp"),
+    "MyServerLib",
+  ]
 )
 ```
+
+`FastMCPAIBridge` is the public library that exposes `HubToolAdapter` and
+`HubToolMapper` for round-trip tests. `import FastMCP` re-exports
+`SwiftAIHub`, so a generated package does not need a direct swift-ai-hub
+dependency just to name `SwiftAIHub.Tool`.

@@ -1,21 +1,63 @@
 # Known Limitations
 
-## No Resource Subscriptions
+Source checks: `Sources/swift-fast-mcp/FastMCP.swift`,
+`Sources/swift-fast-mcp/ServerHandle.swift`,
+`Sources/swift-fast-mcp/Transport.swift`, and
+`../swift-ai-hub/Sources/SwiftAIHub/Generation/GenerationGuide.swift`.
 
-Resources are built with `subscribe: false`. Clients cannot subscribe to resource change notifications.
+## No resource subscriptions
 
-## Silent Deduplication
+Resources are advertised with `subscribe: false`. Clients cannot subscribe
+to resource change notifications. Catalogue-level
+`notifications/resources/list_changed` is supported via
+`FastMCPServerHandle`, but per-resource update notifications are not.
 
-When duplicate tools (same name), resources (same URI), or prompts (same name) are registered, the duplicates are silently dropped without any warning or log message. The first registration wins.
+## Silent dedup for resources and prompts
 
-## Linux Support
+`addResources(_:)` deduplicates by `uri` and `addPrompts(_:)` by `name`.
+Duplicates are silently dropped — first registration wins. No warning is
+logged.
 
-The HTTP transport works on Linux. The stdio and inMemory transports also work on Linux. The package compiles on Linux with Swift 6.2+.
+## Tool dedup is loud
 
-## macOS 14+ Only
+`addTools(_:)` is `throws` and rejects duplicate tool names eagerly with
+`HubBridgeError.duplicateTool(name:)` (`Sources/swift-fast-mcp/FastMCP.swift:80`).
+The same check fires inside `HubToolAdapter.register(_:)` and inside the
+`FastMCPServerHandle.addTool(_:)` / `addTools(_:)` paths, so a duplicate
+name is always a registration-time failure.
 
-The package requires macOS 14+ (`platforms: [.macOS(.v14)]`). No iOS, watchOS, tvOS, or visionOS support.
+## `.inMemory` is unpaired
 
-## Swift 6.2+
+`Transport.inMemory` constructs a fresh `InMemoryTransport()` with no
+peer. The MCP SDK's `connect()` requires a paired transport. For paired
+in-process client/server tests, use `.custom(_:)` with one half of an
+`InMemoryTransport.createConnectedPair()`. Detail: `docs/Transports.md`.
 
-The package requires Swift 6.2+ (`swift-tools-version: 6.2`).
+## Tool error mapping flattens domain errors
+
+Any `Error` thrown from `execute(_:)` is wrapped as
+`HubBridgeError.invalidArguments(tool:reason:)` and surfaces as
+`isError: true` with the message `"Invalid arguments for <tool>: <reason>"`.
+Custom error types reach the wire only through their textual
+representation; they are not preserved as a distinct case. Detail:
+`docs/Tools.md`.
+
+## Schema constraints are partial
+
+`@Generable` re-emits a subset of `GenerationGuide` constraints today
+(array counts, numeric `Int`/`Double`/`Float` ranges, string
+`.constant` / `.anyOf` / `.pattern`). `.element(_:)` intentionally stores no
+element constraint, and dynamic `Regex(...)` patterns may not be observable
+on older deployment targets. See `../swift-ai-hub/docs/Macros.md` for the
+current cut.
+
+## TLS is out of scope
+
+The HTTP transport is plaintext. Deploy behind a reverse proxy (nginx,
+Caddy) for HTTPS termination.
+
+## Platform floor
+
+`swift-tools-version: 6.2`. The `swift-fast-mcp` package itself targets
+macOS 14+, iOS 17+, tvOS 17+, watchOS 10+, visionOS 1+. A scaffolded
+server target on macOS uses `platforms: [.macOS(.v14)]`.

@@ -1,179 +1,161 @@
-# MCPTool Reference
+# `@Tool` Reference
 
-## Content-Only Tools
+Tools in FastMCP are authored with the `@Tool` macro from swift-ai-hub
+(re-exported by `import FastMCP`). The macro turns a plain struct into a
+`SwiftAIHub.Tool` and routes invocations through your `execute(_:)` method.
+Pass instances to `FastMCP.builder().addTools([...])` to expose them on
+`tools/list` / `tools/call`.
+
+The macro contract is documented in `../swift-ai-hub/docs/Macros.md`.
+The implementation is in
+`../swift-ai-hub/Sources/SwiftAIHubMacros/ToolMacro.swift` and
+`../swift-ai-hub/Sources/SwiftAIHub/Tools/ToolMacros.swift`.
+The MCP wire shape is documented in
+[`docs/Tools.md`](../../../../docs/Tools.md).
+
+## Shape
 
 ```swift
-public protocol MCPTool: Sendable {
-  associatedtype Parameters
-  associatedtype Schema: JSONSchemaComponent<Parameters>
+@Tool("description")
+public struct MyTool {
+  @Generable
+  public struct Arguments {
+    @Parameter("…") public var x: T
+  }
 
-  var name: String { get }
-  var description: String? { get }
-  var annotations: Tool.Annotations { get }
-
-  @JSONSchemaBuilder
-  var parameters: Schema { get }
-
-  @ToolContentBuilder
-  func call(with arguments: Parameters) async throws(ToolError) -> Content
+  public func execute(_ arguments: Arguments) async throws -> Output { … }
 }
 ```
 
-- `Content` is a typealias for `[ToolContentItem]`
-- `annotations` defaults to `nil`, but the type is `Tool.Annotations`, not `Tool.Annotations?`
-- Plain `MCPTool` is the right choice when the result only needs human-readable content
+Rules enforced by `@Tool`:
 
-## Structured Tools
+- The annotated type must be a `struct`.
+- It must declare a nested `@Generable struct Arguments` (the macro reads
+  `Arguments.generationSchema` and emits a `call(arguments:)` dispatcher).
+- It must declare `func execute(_ arguments: Arguments) async throws -> Output`.
+  `Output` is inferred from this signature; it must satisfy
+  `PromptRepresentable`.
+- The description must be a string literal.
+- Plain stored properties on the tool struct are allowed for dependencies;
+  the macro only synthesizes `init()` when those properties already have
+  defaults or a user initializer exists.
 
-```swift
-public protocol MCPStructuredTool: MCPTool {
-  associatedtype Output: Codable & Sendable
-  associatedtype OutputSchema: JSONSchemaComponent<Output>
+Derived values:
 
-  @JSONSchemaBuilder
-  var outputSchema: OutputSchema { get }
+| From | Rule |
+|---|---|
+| Wire `name` | Type name with a trailing `Tool` stripped, first letter lowercased. `WeatherTool` → `weather`. |
+| Wire `description` | The macro's string argument. |
+| `inputSchema` | Generated from `Arguments` by `@Generable`. |
+| `Output` | Inferred from `execute(_:)`. |
 
-  func callStructured(with arguments: Parameters) async throws(ToolError)
-    -> StructuredToolResult<Output>
-}
-```
+Plain stored properties on the tool struct that are *not* part of the nested
+`Arguments` type are treated as init-injected dependencies and stay invisible
+to the model.
 
-Structured tools:
+## Canonical Example
 
-- publish `outputSchema` in `tools/list`
-- return typed `structuredContent` in `tools/call`
-- can still include normal text, image, audio, or resource content
-- omit `structuredContent` automatically when they fail with `ToolError`
-
-## Simple Tool
+From `Sources/ExampleTools/WeatherTool.swift`:
 
 ```swift
 import FastMCP
 
-public struct GreetingTool: MCPTool {
-  public let name = "greet"
-  public let description: String? = "Generate a greeting message"
+@Generable
+public struct Coordinate {
+  @Guide(description: "Latitude in decimal degrees, -90 to 90")
+  public var latitude: Double
 
-  public init() {}
+  @Guide(description: "Longitude in decimal degrees, -180 to 180")
+  public var longitude: Double
+}
 
-  @Schemable
-  public struct Parameters: Sendable {
-    public let name: String
-    public let formal: Bool?
+@Generable
+public enum TemperatureUnit: String, CaseIterable {
+  case celsius, fahrenheit
+}
 
-    public init(name: String, formal: Bool? = nil) {
-      self.name = name
-      self.formal = formal
-    }
+@Tool("Get current weather for a location")
+public struct WeatherTool {
+  @Generable
+  public struct Arguments {
+    @Parameter("Location coordinates")
+    public var coordinate: Coordinate
+
+    @Parameter("Temperature unit")
+    public var unit: TemperatureUnit
   }
 
-  public func call(with arguments: Parameters) async throws(ToolError) -> Content {
-    let greeting =
-      arguments.formal == true
-      ? "Good day, \(arguments.name)."
-      : "Hey \(arguments.name)!"
-    return [ToolContentItem(text: greeting)]
+  public func execute(_ arguments: Arguments) async throws -> String {
+    let temp: String
+    switch arguments.unit {
+    case .celsius: temp = "22°C"
+    case .fahrenheit: temp = "72°F"
+    }
+    return
+      "Weather at (\(arguments.coordinate.latitude), \(arguments.coordinate.longitude)): \(temp), Sunny"
   }
 }
 ```
 
-## Structured Tool Example
+`tools/list` publishes a fully-dereferenced JSON Schema for `Arguments`
+(nested `Coordinate` is inlined, `TemperatureUnit` is `string` + `enum`).
+The exact wire payload is shown in `docs/Tools.md`.
+
+## Returning Content
+
+The shape of `execute(_:)`'s return type drives the wire shape:
+
+- **`String`** — single `text` content block whose payload is the JSON-encoded
+  string (because `String` conforms to `Generable`).
+- **A `@Generable` struct or enum** — single `text` content block whose payload
+  is `GeneratedContent.jsonString`.
+- **Anything else `PromptRepresentable`** — single `text` content block
+  containing `output.promptRepresentation.description`.
+
+Structured output is just a `@Generable` return type; no separate protocol
+or wrapper exists. Tools that need to emit images can override the hub-level
+`makeOutputSegments(from:)` (see `docs/Tools.md`).
+
+## Errors
+
+`execute(_:)` uses plain `throws`, not typed throws. Any `Error` is caught by
+the bridge and wrapped as `HubBridgeError.invalidArguments(tool:reason:)`,
+which becomes a wire-level `isError: true` result with a `.text` content
+block carrying `"Invalid arguments for <tool>: <reason>"`. From
+`Sources/ExampleTools/MathTool.swift`:
 
 ```swift
-import FastMCP
+public struct CalculationError: Error, CustomStringConvertible {
+  public let description: String
+}
 
-public struct SearchTool: MCPStructuredTool {
-  public typealias Output = SearchResult
-
-  public let name = "search"
-  public let description: String? = "Return structured search results"
-
-  public init() {}
-
-  @Schemable
-  public struct Parameters: Sendable {
-    public let query: String
-    public init(query: String) { self.query = query }
-  }
-
-  @Schemable
-  public struct SearchResult: Codable, Sendable {
-    public let summary: String
-    public let resultCount: Int
-
-    public init(summary: String, resultCount: Int) {
-      self.summary = summary
-      self.resultCount = resultCount
-    }
-  }
-
-  public func callStructured(with arguments: Parameters) async throws(ToolError)
-    -> StructuredToolResult<SearchResult>
-  {
-    let summary = "Found 2 results for \(arguments.query)"
-    return StructuredToolResult(
-      structuredContent: SearchResult(summary: summary, resultCount: 2)
-    ) {
-      ToolContentItem(text: summary)
-    }
-  }
+public func execute(_ arguments: Arguments) async throws -> String {
+  guard arguments.b != 0 else { throw CalculationError(description: "Division by zero") }
+  …
 }
 ```
 
-## Tool Annotations
-
-Annotations provide hints to clients about a tool's behavior:
-
-```swift
-public var annotations: Tool.Annotations {
-  .init(
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false
-  )
-}
-```
-
-Available annotation hints:
-
-| Hint | Type | Default | Meaning |
-|------|------|---------|---------|
-| `readOnlyHint` | `Bool?` | `nil` | Tool does not modify state |
-| `destructiveHint` | `Bool?` | `nil` | Tool may perform destructive operations |
-| `idempotentHint` | `Bool?` | `nil` | Calling multiple times with same args has same effect |
-| `openWorldHint` | `Bool?` | `nil` | Tool interacts with external entities |
-
-## Error Handling
-
-Use typed throws with `ToolError`:
-
-```swift
-throw ToolError("Division by zero")
-```
-
-`ToolError` content is returned with `isError: true`. Structured tools still omit
-`structuredContent` on error.
+The connection stays up; only the call result is marked as an error.
 
 ## Registration
 
 ```swift
 try await FastMCP.builder()
-  .addTools([
-    GreetingTool(),
-    SearchTool(),
-  ])
+  .addTools([WeatherTool(), MathTool(), StructuredSearchTool()])
   .run()
 ```
 
-Multiple `.addTools()` calls accumulate tools. Duplicates (same `name`) are silently dropped.
-The first registration wins.
+`addTools(_:)` is `throws` (`Sources/swift-fast-mcp/FastMCP.swift:80`) and
+fails fast on duplicate tool names with
+`HubBridgeError.duplicateTool(name:)`. The same check fires inside
+`HubToolAdapter`, so a duplicate wire name is always a registration-time
+failure, never a silent overwrite.
 
-## Key Requirements
+## Property Modifiers
 
-- Parameters structs should be annotated with `@Schemable`
-- Parameters structs used by tools should conform to `Sendable`
-- Structured outputs should conform to `Codable & Sendable`
-- Add `public init()` for cross-module access
-- `description` is `String?`
-- Enum parameters need `@Schemable` and `String` raw values
+Inside `Arguments`, decorate properties with `@Parameter("…")` for the schema
+description, or `@Guide(description: "…", …)` for descriptions plus
+constraints. The accepted constraints (`.minimum`, `.maximum`, `.range`,
+`.minimumCount`, `.maximumCount`, `.count`, `.constant`, `.anyOf`, `.pattern`)
+are listed in `../swift-ai-hub/docs/Macros.md`. Optional properties (`T?`) and
+properties with default values become non-required in the schema.

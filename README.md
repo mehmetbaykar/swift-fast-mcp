@@ -25,7 +25,7 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp", from: "2.2.0")
+    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp", from: "2.3.0")
 ]
 ```
 
@@ -433,6 +433,18 @@ Claude automatically delegates to the `swift-mcp-expert` agent when you ask abou
 ```
 Use the swift-mcp-expert to help me build a weather tool
 ```
+
+## Documentation
+
+- [docs/Tools.md](docs/Tools.md) — exposing `@Tool` structs from swift-ai-hub through an MCP server
+- [docs/PromptsResources.md](docs/PromptsResources.md) — `@MCPPrompt`, `@MCPResource`, `@PromptArgument`, `MCPResourceMimeType`
+- [docs/Transports.md](docs/Transports.md) — stdio, HTTP (stateful / stateless), in-memory, custom; `httpValidation`; ServiceGroup lifecycle
+- [docs/DynamicServers.md](docs/DynamicServers.md) — `FastMCPServerHandle` for adding / removing tools, resources, and prompts after `run()` starts
+
+The `@Tool`, `@Generable`, `@Parameter`, and `@Guide` macros come from
+[swift-ai-hub](https://github.com/mehmetbaykar/swift-ai-hub) — see its
+[docs/Macros.md](https://github.com/mehmetbaykar/swift-ai-hub/blob/main/docs/Macros.md)
+for the macro reference.
 
 ## License
 

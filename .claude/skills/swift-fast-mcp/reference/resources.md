@@ -1,31 +1,61 @@
-# MCPResource Reference
+# `@MCPResource` Reference
 
-## Protocol
+Resources are authored with the `@MCPResource` macro from
+`Sources/swift-fast-mcp/FastMCPMacros.swift` and implemented by
+`Sources/FastMCPMacros/MCPResourceMacro.swift`. The macro turns a struct into
+an `MCPResource` and lets you supply the body with the
+`@ResourceContentBuilder` result builder. Full reference:
+[`docs/PromptsResources.md`](../../../../docs/PromptsResources.md).
+
+## Macro shape
 
 ```swift
-public protocol MCPResource: Sendable {
-  var uri: String { get }
-  var name: String { get }
-  var description: String? { get }
-  var mimeType: String? { get }
-  var content: Content { get async throws }
-}
+@MCPResource(
+  _ uri: String,
+  name: String? = nil,
+  description: String? = nil,
+  mimeType: MCPResourceMimeType? = nil
+)
 ```
 
-- `Content` can be a string literal (auto-converted) or `[ResourceContentItem]`
-- The `content` property can be synchronous or `async throws`
+Applied to a struct, the macro emits:
 
-## Static Resource
+- `public var uri: String`
+- `public var name: String?` only when `name:` is present
+- `public var description: String?` only when `description:` is present
+- `public var mimeType: String?` only when `mimeType:` resolves
+- `public init()` only when the struct has no user-declared init
+- `extension … : MCPResource, Sendable`
+
+The macro does *not* emit `content`. The struct must satisfy the
+`MCPResource` protocol by declaring a content property:
+
+```swift
+@ResourceContentBuilder
+public var content: Content { … }
+```
+
+`Content` is `[ResourceContentItem]` from
+`Sources/swift-fast-mcp/MCPResource.swift`. `ResourceContentItem` stores either
+`.text(String)` or `.blob(String)` plus an optional per-item MIME type, and
+is `ExpressibleByStringLiteral` so a bare string literal is a valid
+`Content` body.
+
+## Canonical Example
+
+From `Sources/ExampleTools/ConfigResource.swift`:
 
 ```swift
 import FastMCP
 
-public struct ConfigResource: MCPResource {
-  public let uri: String
-  public let name: String
-  public let description: String?
-  public let mimeType: String?
-
+@MCPResource(
+  "config://app/settings",
+  name: "App Settings",
+  description: "Application configuration and feature flags",
+  mimeType: .applicationJSON
+)
+public struct ConfigResource {
+  @ResourceContentBuilder
   public var content: Content {
     """
     {
@@ -38,100 +68,67 @@ public struct ConfigResource: MCPResource {
     }
     """
   }
-
-  public init() {
-    self.uri = "config://app/settings"
-    self.name = "App Settings"
-    self.description = "Application configuration and feature flags"
-    self.mimeType = "application/json"
-  }
 }
 ```
 
-String literals are automatically converted to the appropriate `Content` type.
+`resources/list` publishes `name`, `uri`, `description`, and `mimeType`
+straight from the macro arguments. `resources/read` returns a `contents`
+array; FastMCP sets the per-item `mimeType` from `ResourceContentItem`,
+not from the resource-level `mimeType`. A bare string-literal body therefore
+publishes without a per-item MIME type. The wire shapes are shown in
+`docs/PromptsResources.md`.
 
-## Plain Text Resource
+## Async / dynamic content
 
-```swift
-import FastMCP
-
-public struct SystemInfoResource: MCPResource {
-  public let uri = "system://info"
-  public let name = "System Information"
-  public let description: String? = "Current system information"
-  public let mimeType: String? = "text/plain"
-
-  public init() {}
-
-  public var content: Content {
-    """
-    OS: Ubuntu
-    Architecture: x86_64
-    Swift Version: 6.2
-    """
-  }
-}
-```
-
-## Async Resource
-
-For resources that need to fetch data dynamically:
+`MCPResource.content` is declared `{ get async throws }`. Use `async throws`
+when the body needs to fetch:
 
 ```swift
-import FastMCP
-import Foundation
-
-public struct LiveDataResource: MCPResource {
-  public let uri = "data://live/metrics"
-  public let name = "Live Metrics"
-  public let description: String? = "Current system metrics"
-  public let mimeType: String? = "application/json"
-
-  public init() {}
-
+@MCPResource("data://live/metrics", name: "Live Metrics", mimeType: .applicationJSON)
+public struct LiveMetricsResource {
+  @ResourceContentBuilder
   public var content: Content {
     get async throws {
-      // Fetch data dynamically
       let uptime = ProcessInfo.processInfo.systemUptime
-      return """
-      {"uptime": \(uptime)}
-      """
+      ResourceContentItem(text: "{\"uptime\":\(uptime)}", mimeType: "application/json")
     }
   }
 }
 ```
 
-## URI Conventions
+## Blob payloads
 
-- Use scheme-based URIs: `config://app/settings`, `system://info`, `data://live/metrics`
-- URIs must be unique across all resources (used for deduplication)
+`ResourceContentItem.blob(_:mimeType:)` carries a base64-encoded payload and
+emits `blob` instead of `text` on the wire, with `mimeType` always set.
 
-## MIME Types
+## `MCPResourceMimeType`
 
-Common MIME types for resources:
-- `application/json` — JSON data
-- `text/plain` — plain text
-- `text/html` — HTML content
-- `text/markdown` — Markdown content
+The compile-time-safe MIME enum
+(`Sources/swift-fast-mcp/MCPResourceMimeType.swift`):
+
+| Case | `rawValue` |
+|---|---|
+| `.applicationJSON` | `application/json` |
+| `.applicationXML` | `application/xml` |
+| `.applicationOctetStream` | `application/octet-stream` |
+| `.textPlain` | `text/plain` |
+| `.textMarkdown` | `text/markdown` |
+| `.textHTML` | `text/html` |
+| `.textCSV` | `text/csv` |
+| `.imagePNG` | `image/png` |
+| `.imageJPEG` | `image/jpeg` |
+| `.other(String)` | the associated string literal |
+
+`@MCPResource` accepts bare-dot cases (`.applicationJSON`) and
+`.other("custom/mime")` with a string literal.
 
 ## Registration
 
 ```swift
 try await FastMCP.builder()
-  .addResources([
-    ConfigResource(),
-    SystemInfoResource(),
-    LiveDataResource(),
-  ])
+  .addResources([ConfigResource(), SystemInfoResource()])
   .run()
 ```
 
-Multiple `.addResources()` calls accumulate resources. Duplicates (same `uri`) are silently dropped — first registration wins.
-
-## Key Requirements
-
-- Resource struct needs `public init()`
-- `uri` must be unique across all registered resources
-- `description` and `mimeType` types are `String?`
-- `content` can be a computed property (sync) or `async throws`
-- String literals work directly as `Content` return values
+`addResources(_:)` accumulates across calls and deduplicates by `uri`.
+First registration wins; duplicates are silently dropped.
