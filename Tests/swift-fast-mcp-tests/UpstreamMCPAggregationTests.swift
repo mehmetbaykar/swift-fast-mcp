@@ -7,6 +7,10 @@ import Testing
 
 @testable import FastMCP
 
+#if canImport(FoundationNetworking)
+  import FoundationNetworking
+#endif
+
 @Suite("Upstream MCP Aggregation")
 struct UpstreamMCPAggregationTests {
 
