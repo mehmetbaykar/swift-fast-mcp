@@ -87,6 +87,39 @@ committed.
 `removeTool(named:)` is idempotent: removing an unknown name is a no-op and
 emits no notification.
 
+### Upstream MCP servers
+
+When the running server has a handle, you can also add, remove, or refresh
+upstream Streamable HTTP MCP servers dynamically:
+
+```swift
+try await handle.addUpstreamMCPServer(
+  UpstreamMCPServerConfiguration(
+    name: "firecrawl",
+    transport: .streamableHTTP(
+      endpoint: URL(string: "https://mcp.firecrawl.dev/v2/mcp")!,
+      headers: ["Authorization": "Bearer <token>"]
+    ),
+    toolNamePrefix: "firecrawl_"
+  )
+)
+
+try await handle.refreshUpstreamMCPServer(named: "firecrawl")
+await handle.removeUpstreamMCPServer(named: "firecrawl")
+```
+
+`addUpstreamMCPServer(_:)` connects to the upstream server, discovers every page
+of `tools/list`, registers the visible proxied tools, and then emits
+`notifications/tools/list_changed`. `refreshUpstreamMCPServer(named:)` discovers
+a fresh upstream tool list and swaps that server's proxied entries atomically:
+if the refreshed visible names collide with existing local or upstream tools,
+the old entries remain visible and the refresh throws. `removeUpstreamMCPServer`
+disconnects the upstream client, removes every tool from that upstream server,
+and notifies only when something changed.
+
+Only Streamable HTTP upstreams are supported here. Stdio subprocess upstreams
+are intentionally not part of this API.
+
 ### Resources
 
 ```swift

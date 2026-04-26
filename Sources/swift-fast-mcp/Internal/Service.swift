@@ -7,6 +7,7 @@ struct FastMCPService: Service, Sendable {
   let server: Server
   let transport: MCP.Transport
   let logger: Logger
+  let upstreamManager: UpstreamMCPManager
   let onStart: (@Sendable () async -> Void)?
   let onShutdown: (@Sendable () async -> Void)?
   let initializeHook: (@Sendable (Client.Info, Client.Capabilities) async throws -> Void)?
@@ -22,6 +23,8 @@ struct FastMCPService: Service, Sendable {
     logger.info("FastMCP server started")
 
     await server.waitUntilCompleted()
+
+    await upstreamManager.disconnectAll()
 
     if let onShutdown {
       await onShutdown()

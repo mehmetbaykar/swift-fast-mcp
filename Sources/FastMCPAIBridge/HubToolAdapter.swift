@@ -5,8 +5,52 @@ import Foundation
 import MCP
 import SwiftAIHub
 
+/// A tool discovered from an upstream MCP server and exposed through the local
+/// FastMCP tool registry.
+public struct ProxiedMCPTool: Sendable {
+  public let serverName: String
+  public let originalName: String
+  public let tool: MCP.Tool
+
+  private let callHandler: @Sendable ([String: Value]?, Metadata?) async throws -> CallTool.Result
+
+  public init(
+    serverName: String,
+    originalName: String,
+    tool: MCP.Tool,
+    callHandler: @escaping @Sendable ([String: Value]?, Metadata?) async throws -> CallTool.Result
+  ) {
+    self.serverName = serverName
+    self.originalName = originalName
+    self.tool = tool
+    self.callHandler = callHandler
+  }
+
+  public var name: String {
+    tool.name
+  }
+
+  public func call(arguments: [String: Value]?, meta: Metadata?) async throws -> CallTool.Result {
+    try await callHandler(arguments, meta)
+  }
+}
+
 public actor HubToolAdapter {
-  private var tools: [String: any SwiftAIHub.Tool] = [:]
+  private enum Entry: Sendable {
+    case native(any SwiftAIHub.Tool)
+    case proxied(ProxiedMCPTool)
+
+    var name: String {
+      switch self {
+      case .native(let tool):
+        return tool.name
+      case .proxied(let tool):
+        return tool.name
+      }
+    }
+  }
+
+  private var tools: [String: Entry] = [:]
 
   public init() {
     self.tools = [:]
@@ -17,7 +61,7 @@ public actor HubToolAdapter {
       if self.tools[tool.name] != nil {
         throw HubBridgeError.duplicateTool(name: tool.name)
       }
-      self.tools[tool.name] = tool
+      self.tools[tool.name] = .native(tool)
     }
   }
 
@@ -25,7 +69,50 @@ public actor HubToolAdapter {
     if tools[tool.name] != nil {
       throw HubBridgeError.duplicateTool(name: tool.name)
     }
-    tools[tool.name] = tool
+    tools[tool.name] = .native(tool)
+  }
+
+  public func register(_ tool: ProxiedMCPTool) throws {
+    if tools[tool.name] != nil {
+      throw HubBridgeError.duplicateTool(name: tool.name)
+    }
+    tools[tool.name] = .proxied(tool)
+  }
+
+  public func register(_ newTools: [ProxiedMCPTool]) throws {
+    var next = tools
+    try Self.insert(newTools, into: &next)
+    tools = next
+  }
+
+  public func replaceProxiedTools(
+    serverName: String,
+    with newTools: [ProxiedMCPTool]
+  ) throws {
+    var next = tools.filter { _, entry in
+      guard case .proxied(let tool) = entry else { return true }
+      return tool.serverName != serverName
+    }
+    try Self.insert(newTools, into: &next)
+    tools = next
+  }
+
+  public func unregisterProxiedTools(serverName: String) -> Int {
+    let before = tools.count
+    tools = tools.filter { _, entry in
+      guard case .proxied(let tool) = entry else { return true }
+      return tool.serverName != serverName
+    }
+    return before - tools.count
+  }
+
+  public func unregisterAllProxiedTools() -> Int {
+    let before = tools.count
+    tools = tools.filter { _, entry in
+      guard case .proxied = entry else { return true }
+      return false
+    }
+    return before - tools.count
   }
 
   public func unregister(name: String) {
@@ -37,7 +124,21 @@ public actor HubToolAdapter {
   }
 
   public func snapshot() -> [any SwiftAIHub.Tool] {
-    Array(tools.values)
+    tools.values.compactMap { entry in
+      guard case .native(let tool) = entry else { return nil }
+      return tool
+    }
+  }
+
+  public func listTools() -> [MCP.Tool] {
+    tools.values.map { entry in
+      switch entry {
+      case .native(let tool):
+        return HubToolMapper.mapTool(tool)
+      case .proxied(let tool):
+        return tool.tool
+      }
+    }
   }
 
   /// Execute a tool by name with an MCP value payload. Output is returned as
@@ -50,8 +151,13 @@ public actor HubToolAdapter {
   ///   image blocks and only falls back to JSON text for structured output
   ///   (the MCP SDK does not yet expose structured content on CallTool).
   public func execute(name: String, arguments: Value) async throws -> GeneratedContent {
-    guard let tool = tools[name] else {
+    guard let entry = tools[name] else {
       throw HubBridgeError.toolNotFound(name)
+    }
+    guard case .native(let tool) = entry else {
+      throw HubBridgeError.invalidArguments(
+        tool: name,
+        reason: "Proxied MCP tools return MCP content directly")
     }
 
     let hubArgs = HubValueMapper.generatedContent(from: arguments)
@@ -71,10 +177,36 @@ public actor HubToolAdapter {
   ///   content case on CallTool responses; we serialize as JSON text.
   ///   TODO: switch to a structured content case once the MCP SDK adds one.
   public func makeContent(name: String, arguments: Value) async throws -> [MCP.Tool.Content] {
-    guard let tool = tools[name] else {
+    let result = try await callTool(name: name, arguments: arguments, meta: nil)
+    return result.content
+  }
+
+  public func callTool(name: String, arguments: Value, meta: Metadata?) async throws
+    -> CallTool
+    .Result
+  {
+    guard let entry = tools[name] else {
       throw HubBridgeError.toolNotFound(name)
     }
 
+    switch entry {
+    case .native(let tool):
+      let content = try await makeNativeContent(tool: tool, arguments: arguments)
+      return CallTool.Result(content: content, isError: false)
+    case .proxied(let tool):
+      let objectArguments: [String: Value]?
+      if case .object(let fields) = arguments {
+        objectArguments = fields
+      } else {
+        objectArguments = nil
+      }
+      return try await tool.call(arguments: objectArguments, meta: meta)
+    }
+  }
+
+  private func makeNativeContent(tool: any SwiftAIHub.Tool, arguments: Value) async throws -> [MCP
+    .Tool.Content]
+  {
     let hubArgs = HubValueMapper.generatedContent(from: arguments)
     let segments: [Transcript.Segment]
     do {
@@ -149,6 +281,17 @@ public actor HubToolAdapter {
       // responses yet; serialize to JSON text so the client still receives
       // the full payload instead of a sentinel.
       return .text(text: structure.content.jsonString, annotations: nil, _meta: nil)
+    }
+  }
+
+  private static func insert(_ newTools: [ProxiedMCPTool], into tools: inout [String: Entry])
+    throws
+  {
+    for tool in newTools {
+      if tools[tool.name] != nil {
+        throw HubBridgeError.duplicateTool(name: tool.name)
+      }
+      tools[tool.name] = .proxied(tool)
     }
   }
 }

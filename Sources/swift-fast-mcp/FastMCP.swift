@@ -38,6 +38,7 @@ extension FastMCP {
     var httpAllowedOrigins: [String]?
     var httpCustomValidators: [any HTTPRequestValidator]
     var handle: FastMCPServerHandle?
+    var upstreamMCPServers: [UpstreamMCPServerConfiguration]
 
     let resourceDeduplicator = ResourceDeduplicator()
     let promptDeduplicator = PromptDeduplicator()
@@ -63,6 +64,7 @@ extension FastMCP {
       self.httpAllowedOrigins = nil
       self.httpCustomValidators = []
       self.handle = nil
+      self.upstreamMCPServers = []
     }
 
     public func name(_ name: String) -> Builder {
@@ -162,6 +164,22 @@ extension FastMCP {
       return copy
     }
 
+    public func addUpstreamMCPServer(
+      name: String,
+      transport: UpstreamMCPTransport,
+      toolNamePrefix: String? = nil
+    ) -> Builder {
+      var copy = self
+      copy.upstreamMCPServers.append(
+        UpstreamMCPServerConfiguration(
+          name: name,
+          transport: transport,
+          toolNamePrefix: toolNamePrefix
+        )
+      )
+      return copy
+    }
+
     public func transport(_ transport: Transport) -> Builder {
       var copy = self
       copy.transportConfig = transport
@@ -201,9 +219,13 @@ extension FastMCP {
 
       let listChanged = handle != nil
       let hubToolAdapter = try HubToolAdapter(tools: hubTools)
+      let upstreamManager = UpstreamMCPManager(toolAdapter: hubToolAdapter, logger: logger)
+      for upstream in upstreamMCPServers {
+        try await upstreamManager.addServer(upstream)
+      }
 
       let capabilities = CapabilitiesBuilder.build(
-        hasTools: !hubTools.isEmpty || listChanged,
+        hasTools: !hubTools.isEmpty || !upstreamMCPServers.isEmpty || listChanged,
         hasResources: !resources.isEmpty || listChanged,
         hasPrompts: !prompts.isEmpty || listChanged,
         hasCompletions: completionsEnabled,
@@ -214,6 +236,7 @@ extension FastMCP {
       if let handle {
         await handle.configure(
           toolAdapter: hubToolAdapter,
+          upstreamManager: upstreamManager,
           resources: resources,
           prompts: prompts
         )
@@ -230,6 +253,7 @@ extension FastMCP {
         let initializeHook = self.initializeHook
         let handle = self.handle
         let loggingEnabled = self.loggingEnabled
+        let upstreamManager = upstreamManager
 
         let httpConfig = FastMCPHTTPServer.Configuration(
           host: host,
@@ -320,6 +344,7 @@ extension FastMCP {
         let httpService = HTTPFastMCPService(
           httpServer: httpServer,
           logger: logger,
+          upstreamManager: upstreamManager,
           onStart: onStartHandler,
           onShutdown: onShutdownHandler
         )
@@ -357,6 +382,7 @@ extension FastMCP {
           server: server,
           transport: mcpTransport,
           logger: logger,
+          upstreamManager: upstreamManager,
           onStart: onStartHandler,
           onShutdown: onShutdownHandler,
           initializeHook: initializeHook

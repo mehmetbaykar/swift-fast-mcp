@@ -8,6 +8,7 @@ import ServiceLifecycle
 struct HTTPFastMCPService: Service, Sendable {
   let httpServer: FastMCPHTTPServer
   let logger: Logger
+  let upstreamManager: UpstreamMCPManager
   let onStart: (@Sendable () async -> Void)?
   let onShutdown: (@Sendable () async -> Void)?
 
@@ -21,6 +22,8 @@ struct HTTPFastMCPService: Service, Sendable {
     } onGracefulShutdown: {
       Task { await httpServer.stop() }
     }
+
+    await upstreamManager.disconnectAll()
 
     if let onShutdown {
       await onShutdown()

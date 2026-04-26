@@ -19,6 +19,24 @@ try await FastMCP.builder()
     .run()
 ```
 
+Or aggregate tools from another Streamable HTTP MCP server and expose them
+beside your local Swift tools:
+
+```swift
+try await FastMCP.builder()
+    .name("Gateway")
+    .addTools([WeatherTool()])
+    .addUpstreamMCPServer(
+        name: "firecrawl",
+        transport: .streamableHTTP(
+            endpoint: URL(string: "https://mcp.firecrawl.dev/v2/mcp")!,
+            headers: ["Authorization": "Bearer <token>"]
+        ),
+        toolNamePrefix: "firecrawl_"
+    )
+    .run()
+```
+
 ## Installation
 
 Add to your `Package.swift`:
@@ -167,6 +185,11 @@ All builder methods return a new `Builder` (value semantics) and can be chained.
 
 ```swift
 .addTools([WeatherTool(), MathTool(), StructuredSearchTool()])   // Register tool implementations
+.addUpstreamMCPServer(                         // Proxy tools from a Streamable HTTP MCP server
+    name: "docs",
+    transport: .streamableHTTP(endpoint: docsMCPURL),
+    toolNamePrefix: "docs_"
+)
 .addResources([ConfigResource()])         // Register resource implementations
 .addPrompts([GreetingPrompt()])          // Register prompt implementations
 .enableCompletions()                      // Advertise completions capability

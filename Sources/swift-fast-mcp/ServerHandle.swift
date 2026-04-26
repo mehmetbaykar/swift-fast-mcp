@@ -8,6 +8,7 @@ import SwiftAIHub
 /// re-registers handlers and notifies connected clients via the appropriate MCP notification.
 public actor FastMCPServerHandle {
   private var toolAdapter: HubToolAdapter
+  private var upstreamManager: UpstreamMCPManager?
   private var resources: [any MCPResource]
   private var prompts: [any MCPPrompt]
   private var servers: [Server] = []
@@ -23,10 +24,12 @@ public actor FastMCPServerHandle {
 
   func configure(
     toolAdapter: HubToolAdapter,
+    upstreamManager: UpstreamMCPManager?,
     resources: [any MCPResource],
     prompts: [any MCPPrompt]
   ) {
     self.toolAdapter = toolAdapter
+    self.upstreamManager = upstreamManager
     self.resources = resources
     self.prompts = prompts
   }
@@ -95,6 +98,36 @@ public actor FastMCPServerHandle {
   }
 
   public var currentToolAdapter: HubToolAdapter { toolAdapter }
+
+  // MARK: - Upstream MCP Servers
+
+  public func addUpstreamMCPServer(_ configuration: UpstreamMCPServerConfiguration) async throws {
+    guard let upstreamManager else {
+      throw FastMCPError.invalidConfiguration(
+        "FastMCPServerHandle is not attached to a running server")
+    }
+    try await upstreamManager.addServer(configuration)
+    await notifyToolsChanged()
+  }
+
+  public func removeUpstreamMCPServer(named name: String) async {
+    guard let upstreamManager else { return }
+    let changed = await upstreamManager.removeServer(named: name)
+    if changed {
+      await notifyToolsChanged()
+    }
+  }
+
+  public func refreshUpstreamMCPServer(named name: String) async throws {
+    guard let upstreamManager else {
+      throw FastMCPError.invalidConfiguration(
+        "FastMCPServerHandle is not attached to a running server")
+    }
+    let changed = try await upstreamManager.refreshServer(named: name)
+    if changed {
+      await notifyToolsChanged()
+    }
+  }
 
   // MARK: - Resources
 

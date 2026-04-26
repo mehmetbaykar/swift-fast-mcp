@@ -91,6 +91,38 @@ Defaults from `Transport.http`:
 - `port: 3000`
 - `endpoint: "/mcp"`
 
+## Upstream Streamable HTTP aggregation
+
+The `.transport(...)` setting above controls how clients connect to your
+FastMCP server. Upstream MCP aggregation is configured separately with
+`addUpstreamMCPServer(...)`, and currently supports Streamable HTTP upstreams:
+
+```swift
+try await FastMCP.builder()
+  .name("Gateway")
+  .addUpstreamMCPServer(
+    name: "docs",
+    transport: .streamableHTTP(
+      endpoint: URL(string: "https://example.com/mcp")!,
+      headers: ["Authorization": "Bearer <token>"]
+    ),
+    toolNamePrefix: "docs_"
+  )
+  .transport(.http(port: 8080))
+  .run()
+```
+
+This uses the official SDK's `HTTPClientTransport`, which implements MCP
+Streamable HTTP. The API is named `.streamableHTTP` to distinguish it from older
+remote MCP transports that used separate event and message endpoints. Streamable
+HTTP uses regular HTTP POST/GET with optional event-stream responses internally,
+and the SDK handles session IDs, protocol version headers, JSON responses, and
+streaming.
+
+FastMCP does not launch upstream stdio subprocesses in this version. If an
+upstream MCP server is only available as `npx`, `uvx`, or `python -m`, run or
+wrap that server behind a Streamable HTTP endpoint before aggregating it.
+
 ### Stateful vs stateless
 
 `.stateful` runs the full Streamable HTTP profile. The first `POST` carrying

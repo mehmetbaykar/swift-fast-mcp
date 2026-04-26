@@ -231,6 +231,45 @@ try await FastMCP.builder()
 
 `tools/list` returns three entries (`weather`, `math`, `structuredSearch`), each with its own inlined input schema. `tools/call` dispatches on `params.name` — there's no shared state, no ordering coupling, and nothing else to wire.
 
+## Aggregating upstream MCP tools
+
+FastMCP can also discover tools from upstream MCP servers and re-expose them
+through the same local `tools/list` / `tools/call` registry. V1 supports
+upstream **Streamable HTTP** servers through the official Swift MCP SDK's
+`HTTPClientTransport`. Older two-endpoint remote MCP transports and stdio
+subprocess upstreams are intentionally out of scope for this API.
+
+```swift
+try await FastMCP.builder()
+  .name("Aggregated MCP")
+  .addTools([WeatherTool()])
+  .addUpstreamMCPServer(
+    name: "firecrawl",
+    transport: .streamableHTTP(
+      endpoint: URL(string: "https://mcp.firecrawl.dev/v2/mcp")!,
+      headers: ["Authorization": "Bearer <token>"]
+    ),
+    toolNamePrefix: "firecrawl_"
+  )
+  .transport(.stdio)
+  .run()
+```
+
+At startup, FastMCP connects to each upstream server, calls `tools/list`
+including any paginated cursors, and registers each discovered `MCP.Tool` under
+the visible name. `toolNamePrefix` is prepended before registration, so an
+upstream `scrape` tool becomes `firecrawl_scrape` in the downstream catalogue.
+
+Proxied tools preserve the upstream MCP descriptor (`title`, `description`,
+`inputSchema`, `outputSchema`, `annotations`, `icons`, and `_meta`) instead of
+being converted into a `SwiftAIHub.Tool`. Calls are forwarded to the upstream
+server using the original upstream name, and the full upstream `CallTool.Result`
+is returned, including `structuredContent` when the upstream server provides it.
+
+Duplicate visible names still fail at registration time with
+`HubBridgeError.duplicateTool(name:)`. Prefer explicit prefixes for upstream
+servers that may share common tool names such as `search`, `scrape`, or `crawl`.
+
 ## See also
 
 - [`swift-ai-hub/docs/Macros.md`](https://github.com/mehmetbaykar/swift-ai-hub/blob/main/docs/Macros.md) — hub tool authoring reference.

@@ -20,6 +20,7 @@ extension FastMCPServerHandle {
   ) throws {
     configure(
       toolAdapter: try HubToolAdapter(tools: tools),
+      upstreamManager: nil,
       resources: resources,
       prompts: prompts
     )

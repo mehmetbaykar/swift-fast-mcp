@@ -12,15 +12,14 @@ extension Server {
   @discardableResult
   public func register(hubTools adapter: HubToolAdapter) async -> Self {
     _ = self.withMethodHandler(ListTools.self) { _ in
-      let tools = await adapter.snapshot()
-      return ListTools.Result(tools: tools.map { HubToolMapper.mapTool($0) })
+      let tools = await adapter.listTools()
+      return ListTools.Result(tools: tools)
     }
 
     _ = self.withMethodHandler(CallTool.self) { params in
       let args: Value = params.arguments.map { Value.object($0) } ?? .object([:])
       do {
-        let content = try await adapter.makeContent(name: params.name, arguments: args)
-        return CallTool.Result(content: content, isError: false)
+        return try await adapter.callTool(name: params.name, arguments: args, meta: params._meta)
       } catch {
         return HubErrorMapper.mapCallToolError(error, toolName: params.name)
       }

@@ -1,5 +1,6 @@
 import ExampleTools
 import FastMCPAIBridge
+import MCP
 import SwiftAIHub
 import Testing
 
@@ -69,6 +70,24 @@ struct DuplicateToolRegistrationTests {
       #expect(name == "weather")
     } catch {
       Issue.record("Unexpected error: \(error)")
+    }
+  }
+
+  @Test
+  func `HubToolAdapter rejects native and proxied tool-name collision`() async throws {
+    let adapter = try HubToolAdapter(tools: [WeatherTool()])
+    let proxiedWeather = ProxiedMCPTool(
+      serverName: "remote",
+      originalName: "weather",
+      tool: MCP.Tool(
+        name: "weather",
+        description: "Remote weather",
+        inputSchema: .object(["type": .string("object")])
+      )
+    ) { _, _ in CallTool.Result() }
+
+    await #expect(throws: HubBridgeError.self) {
+      try await adapter.register(proxiedWeather)
     }
   }
 }

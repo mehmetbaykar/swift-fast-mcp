@@ -121,6 +121,41 @@ Under `.stdio`, stdout carries JSON-RPC frames — never `print` from a hook. Ro
 
 `addTools(_:)` is `throws` and rejects duplicates eagerly (`Sources/swift-fast-mcp/FastMCP.swift:80`), so call it with `try`.
 
+## Upstream MCP Aggregation
+
+FastMCP can expose local SwiftAIHub tools and proxied tools from upstream MCP
+servers through one downstream server. V1 supports upstream Streamable HTTP only:
+
+```swift
+try await FastMCP.builder()
+  .name("$ARGUMENTS[0]")
+  .addTools([
+    // Local SwiftAIHub tools
+  ])
+  .addUpstreamMCPServer(
+    name: "firecrawl",
+    transport: .streamableHTTP(
+      endpoint: URL(string: "https://mcp.firecrawl.dev/v2/mcp")!,
+      headers: ["Authorization": "Bearer <token>"]
+    ),
+    toolNamePrefix: "firecrawl_"
+  )
+  .transport(.stdio)
+  .logger(logger)
+  .run()
+```
+
+Important constraints:
+
+- Use `.streamableHTTP` for upstream aggregation. The SDK's
+  `HTTPClientTransport` handles MCP Streamable HTTP.
+- Do not document or generate stdio subprocess upstreams yet. FastMCP does not
+  spawn `npx`, `uvx`, or `python` upstream servers in this version.
+- Prefix upstream tool names when they may collide with local tools or other
+  upstream servers. Duplicate visible names throw `HubBridgeError.duplicateTool`.
+- Proxied tools preserve upstream `MCP.Tool` metadata and return the upstream
+  `CallTool.Result`, including `structuredContent` when available.
+
 ## Quick Reference: Tool
 
 ```swift
