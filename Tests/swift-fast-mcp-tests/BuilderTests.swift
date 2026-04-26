@@ -4,7 +4,6 @@ import Foundation
 import Logging
 import MCP
 import SwiftAIHub
-import SwiftAIHubMCP
 import Testing
 import UnixSignals
 
@@ -82,9 +81,9 @@ struct BuilderTests {
     #expect(builder.hubTools.map(\.name).sorted() == ["math", "weather"])
   }
 
-  @Test func `add MCP tool provider resolves tools`() async throws {
-    let provider = StaticToolSource(tools: [WeatherTool()])
-    let builder = try await FastMCP.builder().addMCPToolProvider(provider)
+  @Test func `add MCP tool provider accepts generic tool source`() async throws {
+    let source = StaticToolSource(tools: [WeatherTool()])
+    let builder = try await FastMCP.builder().addMCPToolProvider(source)
 
     #expect(builder.hubTools.map(\.name) == ["weather"])
   }
@@ -327,22 +326,8 @@ struct BuilderTests {
   }
 }
 
-private struct StaticToolSource: MCPToolProviderProtocol {
+private struct StaticToolSource: SwiftAIHub.ToolSource {
   let tools: [any SwiftAIHub.Tool]
-
-  var name: String { "static" }
-  var toolNamePrefix: String? { nil }
-
-  func makeConfiguration() async throws -> MCPToolProvider.Configuration {
-    MCPToolProvider.Configuration(
-      name: name,
-      transport: .streamableHTTP(
-        endpoint: URL(string: "https://example.com/mcp")!,
-        headers: { [:] },
-        streaming: true
-      )
-    )
-  }
 
   func resolveTools() async throws -> [any SwiftAIHub.Tool] {
     tools

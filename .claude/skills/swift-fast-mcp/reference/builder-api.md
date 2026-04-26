@@ -42,7 +42,7 @@ let builder = FastMCP.builder()
 | `run` | `func run() async throws` | — |
 
 `addTools` is `throws` and rejects duplicate tool names eagerly with
-`HubBridgeError.duplicateTool(name:)` (`FastMCP.swift:80`).
+`HubBridgeError.duplicateTool(name:)`.
 `addUpstreamMCPServer` and `addUpstreamMCPServers` are `throws` and reject
 duplicate upstream server names eagerly with `FastMCPError.invalidConfiguration`,
 including duplicates within a batch. Use
@@ -55,8 +55,8 @@ methods are non-throwing and silently drop duplicates (resources by `uri`,
 prompts by `name`).
 
 Generated server packages depend on `swift-fast-mcp` from `"2.6.0"`.
-FastMCP's own `Package.swift` declares swift-ai-hub from `"0.7.0"` using
-products `SwiftAIHub` and `SwiftAIHubMCP` from package `swift-ai-hub`, and
+FastMCP's own `Package.swift` declares swift-ai-hub from `"0.8.0"` using
+product `SwiftAIHub` from package `swift-ai-hub`, and
 `Sources/swift-fast-mcp/Exports.swift` re-exports it through `import FastMCP`.
 `MCP` itself is not re-exported; add `import MCP` when naming MCP SDK types
 such as `Icon`, `Client.Info`, `Client.Capabilities`, `HTTPRequestValidator`,

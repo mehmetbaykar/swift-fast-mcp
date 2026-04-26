@@ -34,7 +34,7 @@ public enum HTTPMode: Sendable {
 
 You select a transport with `.transport(_:)` on the builder. The default is
 `.stdio`
-([`FastMCP.swift:51`](../Sources/swift-fast-mcp/FastMCP.swift)).
+([`FastMCP.swift`](../Sources/swift-fast-mcp/FastMCP.swift)).
 
 ## Stdio
 
@@ -58,7 +58,7 @@ Use stdio when:
 - You don't need network exposure.
 
 The transport is constructed via the upstream SDK's `StdioTransport`
-([`FastMCP.swift:378`](../Sources/swift-fast-mcp/FastMCP.swift)) and runs inside
+([`FastMCP.swift`](../Sources/swift-fast-mcp/FastMCP.swift)) and runs inside
 a `ServiceGroup` so `onStart`/`onShutdown`/signal handling work uniformly across
 all transports.
 
@@ -137,15 +137,14 @@ returned `MCP-Session-Id` header. Sessions support SSE streaming, server -> clie
 notifications, resumability, and explicit teardown via `DELETE`. Idle sessions
 expire after `sessionTimeout` (default `.seconds(3600)`, change with
 `.sessionTimeout(_:)`); a background loop sweeps every 60 s
-([`FastMCP.swift:62`](../Sources/swift-fast-mcp/FastMCP.swift),
-[`FastMCP.swift:143`](../Sources/swift-fast-mcp/FastMCP.swift),
-[`HTTPServer.swift:281`](../Sources/swift-fast-mcp/Internal/HTTPServer.swift)).
+([`FastMCP.swift`](../Sources/swift-fast-mcp/FastMCP.swift),
+[`HTTPServer.swift`](../Sources/swift-fast-mcp/Internal/HTTPServer.swift)).
 Choose `.stateful` for interactive clients that need streaming or progress.
 
 `.stateless` answers each `POST` with a direct JSON response and no session
 tracking — `GET`/`DELETE` are not used. A single `StatelessHTTPServerTransport`
 serves every request
-([`HTTPServer.swift:119`](../Sources/swift-fast-mcp/Internal/HTTPServer.swift)).
+([`HTTPServer.swift`](../Sources/swift-fast-mcp/Internal/HTTPServer.swift)).
 Choose `.stateless` for fan-out behind a load balancer, serverless deployments,
 or simple request/response tools where session continuity isn't needed.
 
@@ -160,7 +159,7 @@ public func httpValidation(
 
 `httpValidation` wires a request-validation pipeline in front of every HTTP
 request
-([`FastMCP.swift:241`](../Sources/swift-fast-mcp/FastMCP.swift)). It only
+([`FastMCP.swift`](../Sources/swift-fast-mcp/FastMCP.swift)). It only
 applies when the transport is `.http(...)`.
 
 - `allowedOrigins` — when non-nil and non-empty, builds an `OriginValidator`
@@ -210,7 +209,7 @@ let server = FastMCP.builder()
 
 Every transport path is wrapped in a `swift-service-lifecycle` `ServiceGroup`
 with the configured shutdown signals
-([`FastMCP.swift:326`](../Sources/swift-fast-mcp/FastMCP.swift),
+([`FastMCP.swift`](../Sources/swift-fast-mcp/FastMCP.swift),
 [`Internal/Service.swift`](../Sources/swift-fast-mcp/Internal/Service.swift),
 [`Internal/HTTPService.swift`](../Sources/swift-fast-mcp/Internal/HTTPService.swift)):
 
@@ -227,12 +226,12 @@ with the configured shutdown signals
   the service calls `httpServer.stop()`, then `onShutdown` runs after
   `httpServer.start()` returns.
 - `shutdownSignals` defaults to `[.sigterm, .sigint]`
-  ([`FastMCP.swift:53`](../Sources/swift-fast-mcp/FastMCP.swift)) — pass an
+  ([`FastMCP.swift`](../Sources/swift-fast-mcp/FastMCP.swift)) — pass an
   empty array to opt out, or add e.g. `.sighup`. The `ServiceGroup` receives the
   configured signal list for both HTTP and non-HTTP transports.
 - `httpServer.stop()` closes all sessions, disconnects the stateless transport
   if present, and closes the listening channel
-  ([`HTTPServer.swift:142`](../Sources/swift-fast-mcp/Internal/HTTPServer.swift)).
+  ([`HTTPServer.swift`](../Sources/swift-fast-mcp/Internal/HTTPServer.swift)).
 
 `run()` is `async throws` and only returns once the group has stopped.
 
@@ -244,7 +243,7 @@ with the configured shutdown signals
 
 `FastMCP` calls `InMemoryTransport()` (from the swift-sdk MCP module) when you
 select `.inMemory`
-([`FastMCP.swift:380`](../Sources/swift-fast-mcp/FastMCP.swift)). That creates a
+([`FastMCP.swift`](../Sources/swift-fast-mcp/FastMCP.swift)). That creates a
 fresh, unpaired transport. The SDK's `connect()` requires a paired transport and
 throws when none is present, so paired in-process client/server tests should use
 `.custom(_:)` with one half of a connected pair:

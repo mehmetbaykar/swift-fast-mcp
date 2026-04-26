@@ -1,4 +1,4 @@
-// Exercises the "dual-use tools" promise from docs/05-tools-dual-use.md:
+// Exercises the dual-use tools promise:
 // - Test A (behaviour): OnlineSearchTool.execute() runs end-to-end against the
 //   real OpenAILanguageModel provider with a mocked HTTP transport. The test
 //   drives two scripted HTTP responses — first a tool-call for

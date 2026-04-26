@@ -13,7 +13,7 @@ Specialize in production Swift MCP servers built with FastMCP's high-level APIs.
 FastMCP wraps the official MCP Swift SDK. Keep these API facts current:
 
 - The fluent builder API (`FastMCP.builder()`) and every configuration method
-- The `@Tool` macro from swift-ai-hub: `struct` + nested `@Generable struct Arguments` + `func execute(_:) async throws -> Output`
+- The `@Tool` macro from swift-ai-hub: flat `@Parameter` properties + `execute()`, or nested `@Generable struct Arguments` + `execute(_:)`
 - Returning a `@Generable` type from `execute(_:)` for structured output (no separate protocol)
 - The `@MCPResource(uri:name:description:mimeType:)` macro and `@ResourceContentBuilder` content body
 - The `@MCPPrompt(_:name:)` macro with `@PromptArgument(_:name:required:)` and a user-declared zero-argument `getMessages()`
@@ -35,12 +35,12 @@ When invoked:
 ## Critical Rules
 
 - Always use `import FastMCP` — it re-exports `SwiftAIHub`, `Logging`, `UnixSignals`, and `FastMCPAIBridge` (`Sources/swift-fast-mcp/Exports.swift`). Add `import MCP` only when naming MCP SDK types such as `Icon`, `HTTPRequestValidator`, or `MCP.Transport`
-- Generated `Package.swift` files depend on `swift-fast-mcp` from `2.3.0`; FastMCP itself declares swift-ai-hub from `0.1.0` using product `SwiftAIHub` from package `swift-ai-hub`
+- Generated `Package.swift` files depend on `swift-fast-mcp` from `2.6.0`; FastMCP itself declares swift-ai-hub from `0.8.0` using product `SwiftAIHub` from package `swift-ai-hub`
 - Never reach for raw swift-sdk APIs (`Server`, `withMethodHandler`, `StdioTransport`) directly; the builder owns server construction
-- A `@Tool` struct must declare `nested @Generable struct Arguments` and `func execute(_ arguments: Arguments) async throws -> Output`
+- A `@Tool` struct can use flat `@Parameter` stored properties with `func execute() async throws -> Output`, or nested `@Generable struct Arguments` with `func execute(_ arguments: Arguments) async throws -> Output`
 - The wire `name` is derived: `WeatherTool` → `weather`, `MathTool` → `math`. The current `@Tool` macro has no `name:` argument; rename the Swift type when the wire name must change
-- Return `String` from `execute(_:)` for a simple scalar result; `tools/call` serializes generated content as MCP text, so clients receive JSON string text. Return any custom `@Generable` type for structured JSON content. There is no extra wrapper type
-- Use plain `throws` on `execute(_:)`. Errors flow through the bridge as `HubBridgeError.invalidArguments(...)` and surface as `isError: true`
+- Return `String` from `execute` for a simple scalar result; `tools/call` serializes generated content as MCP text, so clients receive JSON string text. Return any custom `@Generable` type for structured JSON content. There is no extra wrapper type
+- Use plain `throws` on `execute`. Errors flow through the bridge as `HubBridgeError.invalidArguments(...)` and surface as `isError: true`
 - `@Generable` enums must declare a `String` raw value
 - `@MCPResource` requires the user to supply `var content: Content` with `@ResourceContentBuilder`; the macro does not synthesise `content`
 - `@MCPPrompt` requires the user to declare a zero-argument `getMessages()`; the macro emits the `getMessages(arguments:)` dispatcher that decodes raw `[String: String]` arguments
@@ -49,7 +49,7 @@ When invoked:
 - `addTools(_:)`, `addUpstreamMCPServer(name:transport:toolNamePrefix:)`, and `addUpstreamMCPServers(_:)` are `throws`; call them with `try`. Resource and prompt `add…` methods are non-throwing and dedup silently
 - Under `.stdio`, route lifecycle messages through `Logger`. Never `print` from a hook — stdout carries JSON-RPC frames
 - Use Swift Testing (`@Suite`, `@Test`, `#expect`), never XCTest
-- `Package.swift` depends on `swift-fast-mcp` from `2.3.0`; Swift 6.2+; `platforms: [.macOS(.v14)]` for executable targets
+- `Package.swift` depends on `swift-fast-mcp` from `2.6.0`; Swift 6.2+; `platforms: [.macOS(.v14)]` for executable targets
 
 ## Project Structure Convention
 

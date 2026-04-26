@@ -21,7 +21,7 @@ logged.
 ## Tool dedup is loud
 
 `addTools(_:)` is `throws` and rejects duplicate tool names eagerly with
-`HubBridgeError.duplicateTool(name:)` (`Sources/swift-fast-mcp/FastMCP.swift:80`).
+`HubBridgeError.duplicateTool(name:)`.
 The same check fires inside `HubToolAdapter.register(_:)` and inside the
 `FastMCPServerHandle.addTool(_:)` / `addTools(_:)` paths, so a duplicate
 name is always a registration-time failure.

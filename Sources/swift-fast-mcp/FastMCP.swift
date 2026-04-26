@@ -4,7 +4,6 @@ import Logging
 import MCP
 import ServiceLifecycle
 import SwiftAIHub
-import SwiftAIHubMCP
 import UnixSignals
 
 #if canImport(FoundationNetworking)
@@ -107,8 +106,7 @@ extension FastMCP {
       return copy
     }
 
-    public func addMCPToolProvider(_ provider: any MCPToolProviderProtocol) async throws -> Builder
-    {
+    public func addMCPToolProvider(_ provider: any SwiftAIHub.ToolSource) async throws -> Builder {
       try await addTools(provider)
     }
 

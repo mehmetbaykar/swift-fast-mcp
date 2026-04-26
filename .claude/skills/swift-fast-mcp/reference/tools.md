@@ -2,7 +2,7 @@
 
 Tools in FastMCP are authored with the `@Tool` macro from swift-ai-hub
 (re-exported by `import FastMCP`). The macro turns a plain struct into a
-`SwiftAIHub.Tool` and routes invocations through your `execute(_:)` method.
+`SwiftAIHub.Tool` and routes invocations through your `execute` method.
 Pass instances to `FastMCP.builder().addTools([...])` to expose them on
 `tools/list` / `tools/call`.
 
@@ -14,6 +14,19 @@ The MCP wire shape is documented in
 [`docs/Tools.md`](../../../../docs/Tools.md).
 
 ## Shape
+
+Flat form:
+
+```swift
+@Tool("description")
+public struct MyTool {
+  @Parameter("…") public var x: T = defaultValue
+
+  public func execute() async throws -> Output { … }
+}
+```
+
+Nested form:
 
 ```swift
 @Tool("description")
@@ -30,10 +43,9 @@ public struct MyTool {
 Rules enforced by `@Tool`:
 
 - The annotated type must be a `struct`.
-- It must declare a nested `@Generable struct Arguments` (the macro reads
-  `Arguments.generationSchema` and emits a `call(arguments:)` dispatcher).
-- It must declare `func execute(_ arguments: Arguments) async throws -> Output`.
-  `Output` is inferred from this signature; it must satisfy
+- It can use flat `@Parameter` stored properties and `execute()`, or the nested
+  `@Generable struct Arguments` form with `execute(_:)`.
+- `Output` is inferred from the `execute` signature; it must satisfy
   `PromptRepresentable`.
 - The description must be a string literal.
 - Plain stored properties on the tool struct are allowed for dependencies;
@@ -46,15 +58,15 @@ Derived values:
 |---|---|
 | Wire `name` | Type name with a trailing `Tool` stripped, first letter lowercased. `WeatherTool` → `weather`. |
 | Wire `description` | The macro's string argument. |
-| `inputSchema` | Generated from `Arguments` by `@Generable`. |
-| `Output` | Inferred from `execute(_:)`. |
+| `inputSchema` | Generated from flat `@Parameter` properties or nested `Arguments` by `@Generable`. |
+| `Output` | Inferred from `execute`. |
 
 The current `@Tool` macro has no `name:` argument and emits `name` from
 `Self.schema.name`. Rename the Swift type when the wire name needs to change.
 
-Plain stored properties on the tool struct that are *not* part of the nested
-`Arguments` type are treated as init-injected dependencies and stay invisible
-to the model.
+Plain stored properties on the tool struct that are neither flat `@Parameter`
+fields nor part of the nested `Arguments` type are treated as init-injected
+dependencies and stay invisible to the model.
 
 ## Canonical Example
 
@@ -106,7 +118,7 @@ The exact wire payload is shown in `docs/Tools.md`.
 
 ## Returning Content
 
-The shape of `execute(_:)`'s return type drives the wire shape:
+The shape of `execute`'s return type drives the wire shape:
 
 - **`String`** — single `text` content block whose payload is the JSON-encoded
   string (because `String` conforms to `Generable`).
@@ -121,7 +133,7 @@ or wrapper exists. Tools that need to emit images can override the hub-level
 
 ## Errors
 
-`execute(_:)` uses plain `throws`, not typed throws. Any `Error` is caught by
+`execute` uses plain `throws`, not typed throws. Any `Error` is caught by
 the bridge and wrapped as `HubBridgeError.invalidArguments(tool:reason:)`,
 which becomes a wire-level `isError: true` result with a `.text` content
 block carrying `"Invalid arguments for <tool>: <reason>"`. From
@@ -148,7 +160,7 @@ try await FastMCP.builder()
   .run()
 ```
 
-`addTools(_:)` is `throws` (`Sources/swift-fast-mcp/FastMCP.swift:80`) and
+`addTools(_:)` is `throws` and
 fails fast on duplicate tool names with
 `HubBridgeError.duplicateTool(name:)`. The same check fires inside
 `HubToolAdapter`, so a duplicate wire name is always a registration-time
@@ -156,8 +168,9 @@ failure, never a silent overwrite.
 
 ## Property Modifiers
 
-Inside `Arguments`, decorate properties with `@Parameter("…")` for the schema
-description, or `@Guide(description: "…", …)` for descriptions plus
+For model-visible parameters, decorate flat tool properties or nested
+`Arguments` properties with `@Parameter("…")` for the schema description, or
+`@Guide(description: "…", …)` for descriptions plus
 constraints. The accepted constraints (`.minimum`, `.maximum`, `.range`,
 `.minimumCount`, `.maximumCount`, `.count`, `.constant`, `.anyOf`, `.pattern`)
 are listed in `../swift-ai-hub/docs/Macros.md`. Optional properties (`T?`) and

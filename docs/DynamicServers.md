@@ -20,7 +20,7 @@ try await FastMCP.builder()
 ```
 
 Reach for `FastMCPServerHandle` only when you need post-start mutation. The
-handle is a `public actor` (`Sources/swift-fast-mcp/ServerHandle.swift:9`); you
+handle is a `public actor` (`Sources/swift-fast-mcp/ServerHandle.swift`); you
 keep a long-lived reference to it alongside the task running the server, then
 call its mutation methods from anywhere — a config-file watcher, an admin RPC,
 a plug-in loader, etc.
@@ -41,47 +41,45 @@ try await FastMCP.builder()
 
 `serverHandle(_:)` is defined as
 `public func serverHandle(_ handle: FastMCPServerHandle) -> Builder`
-(`Sources/swift-fast-mcp/FastMCP.swift:159-163`). The seed passed via
+(`Sources/swift-fast-mcp/FastMCP.swift`). The seed passed via
 `addTools` / `addResources` / `addPrompts` is copied into the handle during
 `run()` via the internal
 `configure(toolAdapter:resources:prompts:)` method
-(`Sources/swift-fast-mcp/ServerHandle.swift:24-32`;
-call site `FastMCP.swift:214-220`). Any mutations made on the handle *before*
+(`Sources/swift-fast-mcp/ServerHandle.swift`;
+call site `FastMCP.swift`). Any mutations made on the handle *before*
 it reaches `run()` are overwritten. Build the seed with the builder; use the
 handle for post-start mutations only.
 
 For non-HTTP transports, `run()` registers the initial handlers on one
 `MCP.Server`, then calls `registerServer(_:)` to put that server under handle
-tracking (`FastMCP.swift:342-351`;
-`Sources/swift-fast-mcp/ServerHandle.swift:34-36`).
+tracking (`Sources/swift-fast-mcp/FastMCP.swift`;
+`Sources/swift-fast-mcp/ServerHandle.swift`).
 
 The internal handle methods used by `run()` are
-`func configure(toolAdapter: HubToolAdapter, resources: [any MCPResource], prompts: [any MCPPrompt])`
-(`ServerHandle.swift:24-28`), `func registerServer(_ server: Server)`
-(`ServerHandle.swift:34-36`),
-`func registerHTTPSession(_ server: Server) async` (`ServerHandle.swift:47-51`),
-and `func activateHTTPSession(_ server: Server) async`
-(`ServerHandle.swift:57-61`).
+`func configure(toolAdapter: HubToolAdapter, resources: [any MCPResource], prompts: [any MCPPrompt])`,
+`func registerServer(_ server: Server)`,
+`func registerHTTPSession(_ server: Server) async`, and
+`func activateHTTPSession(_ server: Server) async`
+(`Sources/swift-fast-mcp/ServerHandle.swift`).
 
 ## Mutating the catalogue
 
 All public mutation methods shown below are `async`. Tool add methods are
-`throws` for duplicate names (`ServerHandle.swift:65-86`); tool removal is
-non-throwing (`ServerHandle.swift:88-95`). Resource and prompt methods call the
-deduplicators and are non-throwing (`ServerHandle.swift:101-145`).
+`throws` for duplicate names; tool removal is non-throwing. Resource and prompt
+methods call the deduplicators and are non-throwing
+(`Sources/swift-fast-mcp/ServerHandle.swift`).
 
 ### Tools
 
 ```swift
-try await handle.addTool(MathTool())                            // public func addTool(_ tool: any SwiftAIHub.Tool) async throws, ServerHandle.swift:65
-try await handle.addTools([MathTool(), GeoTool()])              // public func addTools(_ newTools: [any SwiftAIHub.Tool]) async throws, ServerHandle.swift:70
-await handle.removeTool(named: "weather")                       // public func removeTool(named name: String) async, ServerHandle.swift:88
-let adapter = await handle.currentToolAdapter                   // ServerHandle.swift:97
+try await handle.addTool(MathTool())                            // public func addTool(_ tool: any SwiftAIHub.Tool) async throws
+try await handle.addTools([MathTool(), GeoTool()])              // public func addTools(_ newTools: [any SwiftAIHub.Tool]) async throws
+await handle.removeTool(named: "weather")                       // public func removeTool(named name: String) async
+let adapter = await handle.currentToolAdapter
 ```
 
 `addTools(_:)` validates the whole batch up front against existing names and
-duplicates inside the batch (`ServerHandle.swift:76-81`) before mutating the
-adapter (`ServerHandle.swift:82-85`). A duplicate anywhere in the batch fails
+duplicates inside the batch before mutating the adapter. A duplicate anywhere in the batch fails
 with `HubBridgeError.duplicateTool` before any item from that batch is
 committed.
 `removeTool(named:)` is idempotent: removing an unknown name is a no-op and
@@ -129,19 +127,19 @@ not accidentally surfaced by lower-level transports.
 ### Resources
 
 ```swift
-await handle.addResource(ConfigResource())                      // public func addResource(_ resource: any MCPResource) async, ServerHandle.swift:101
-await handle.addResources([LogResource(), MetricsResource()])   // public func addResources(_ newResources: [any MCPResource]) async, ServerHandle.swift:107
-await handle.removeResource(uri: "file:///etc/config.json")     // public func removeResource(uri: String) async, ServerHandle.swift:113
-let resources = await handle.currentResources                   // ServerHandle.swift:122
+await handle.addResource(ConfigResource())                      // public func addResource(_ resource: any MCPResource) async
+await handle.addResources([LogResource(), MetricsResource()])   // public func addResources(_ newResources: [any MCPResource]) async
+await handle.removeResource(uri: "file:///etc/config.json")     // public func removeResource(uri: String) async
+let resources = await handle.currentResources
 ```
 
 ### Prompts
 
 ```swift
-await handle.addPrompt(GreetingPrompt())                        // public func addPrompt(_ prompt: any MCPPrompt) async, ServerHandle.swift:126
-await handle.addPrompts([SummarizePrompt(), TranslatePrompt()]) // public func addPrompts(_ newPrompts: [any MCPPrompt]) async, ServerHandle.swift:132
-await handle.removePrompt(named: "greeting")                    // public func removePrompt(named name: String) async, ServerHandle.swift:138
-let prompts = await handle.currentPrompts                       // ServerHandle.swift:147
+await handle.addPrompt(GreetingPrompt())                        // public func addPrompt(_ prompt: any MCPPrompt) async
+await handle.addPrompts([SummarizePrompt(), TranslatePrompt()]) // public func addPrompts(_ newPrompts: [any MCPPrompt]) async
+await handle.removePrompt(named: "greeting")                    // public func removePrompt(named name: String) async
+let prompts = await handle.currentPrompts
 ```
 
 ## listChanged notifications
@@ -149,9 +147,8 @@ let prompts = await handle.currentPrompts                       // ServerHandle.
 When a handle is attached, the builder flips the `listChanged` flag on every
 advertised capability (tools, resources, prompts) by passing
 `listChanged: true` to `CapabilitiesBuilder.build(...)`
-(`FastMCP.swift:202-212`). Those capabilities are passed to each `Server`
-created by `run()` (`FastMCP.swift:257-263`, `FastMCP.swift:290-296`,
-`FastMCP.swift:334-340`), so the server may push:
+(`Sources/swift-fast-mcp/FastMCP.swift`). Those capabilities are passed to each
+`Server` created by `run()`, so the server may push:
 
 - `notifications/tools/list_changed`
 - `notifications/resources/list_changed`
@@ -159,73 +156,71 @@ created by `run()` (`FastMCP.swift:257-263`, `FastMCP.swift:290-296`,
 
 The handle emits notifications from three private helpers:
 `notifyToolsChanged()`, `notifyResourcesChanged()`, and
-`notifyPromptsChanged()` (`ServerHandle.swift:163-197`). Each helper walks the
+`notifyPromptsChanged()` (`Sources/swift-fast-mcp/ServerHandle.swift`). Each helper walks the
 tracked `Server` list, calls the matching MCP notification message, and records
 servers whose `notify(...)` call throws. It then prunes those servers with
-`removeServers(at:)` (`ServerHandle.swift:199-203`).
+`removeServers(at:)`.
 
 The mutation paths differ:
 
 **Tools** - `addTool(_:)` and `addTools(_:)` mutate the shared `HubToolAdapter`
-and then notify (`ServerHandle.swift:65-86`). `removeTool(named:)` unregisters
+and then notify. `removeTool(named:)` unregisters
 from the adapter and notifies only when the name existed
-(`ServerHandle.swift:88-95`).
+(`Sources/swift-fast-mcp/ServerHandle.swift`).
 
 **Resources and prompts** - add methods write the deduplicated array,
 re-register handlers on every tracked server, then notify
-(`ServerHandle.swift:101-110`, `ServerHandle.swift:126-135`). Remove methods
+(`Sources/swift-fast-mcp/ServerHandle.swift`). Remove methods
 re-register and notify only when the item existed
-(`ServerHandle.swift:113-119`, `ServerHandle.swift:138-144`). The
+(`Sources/swift-fast-mcp/ServerHandle.swift`). The
 re-registration helpers loop over tracked servers and call
 `server.register(resources:)` or `server.register(prompts:)`
-(`ServerHandle.swift:151-160`).
+(`Sources/swift-fast-mcp/ServerHandle.swift`).
 
 ## Stateful HTTP — per-session servers under one handle
 
 Stateful HTTP transport spawns one `MCP.Server` per session. The handle tracks
 all of them so a single mutation reaches every active session.
 
-The flow per new session (`FastMCP.swift:256-282`):
+The flow per new session (`Sources/swift-fast-mcp/FastMCP.swift`):
 
 1. The HTTP server invokes the session factory.
 2. The factory builds an `MCP.Server` and calls
    `await handle.registerHTTPSession(server)`, which registers handlers for
    the *current* tool adapter, resources, and prompts on that server but does
-   *not* yet add it to the tracking list (`ServerHandle.swift:47-51`).
+   *not* yet add it to the tracking list.
 3. The factory calls `server.start(transport:initializeHook:)`.
 4. After `start` returns, the factory calls
    `await handle.activateHTTPSession(server)`, which appends the server to the
    tracking list and re-registers resources and prompts in case the catalogue
-   changed during start-up (`ServerHandle.swift:57-61`).
+   changed during start-up.
 
 The split exists to avoid a race documented in the source: notifying a server
 that has not yet finished `start(...)` can throw
 `connection-not-initialized`, and the prune logic would remove that server from
-tracking before it served requests (`ServerHandle.swift:38-46`). Registering
+tracking before it served requests (`Sources/swift-fast-mcp/ServerHandle.swift`). Registering
 before `start` and tracking after `start` closes that window.
 
 A subsequent `await handle.addTool(...)` mutates the handle's `toolAdapter` and
-emits one notification per server in the tracking list
-(`ServerHandle.swift:65-68`, `ServerHandle.swift:163-173`). Stateless HTTP
-follows the same factory pattern (`FastMCP.swift:289-314`).
+emits one notification per server in the tracking list. Stateless HTTP
+follows the same factory pattern (`Sources/swift-fast-mcp/FastMCP.swift`).
 
 ## Concurrency
 
 `FastMCPServerHandle` is declared as a `public actor`
-(`ServerHandle.swift:9`), so calls into the handle serialize on the actor's
+(`Sources/swift-fast-mcp/ServerHandle.swift`), so calls into the handle serialize on the actor's
 executor. Three things follow:
 
-- **Mutations are awaited.** Every public mutation method is `async`
-  (`ServerHandle.swift:65-145`). `try await handle.addTool(...)` returns once
-  the adapter registration and tool notification pass finish
-  (`ServerHandle.swift:65-68`, `ServerHandle.swift:163-173`).
+- **Mutations are awaited.** Every public mutation method is `async`.
+  `try await handle.addTool(...)` returns once the adapter registration and tool
+  notification pass finish.
 - **Hot-reload bursts are safe.** Concurrent calls to `addTool` / `removeTool`
   / `addResource` / etc. from different tasks are linearised; no extra locking
   is needed at call sites.
 - **Notification fan-out runs on the actor.** A mutation that notifies many
-  sessions holds the actor until fan-out finishes (`ServerHandle.swift:163-197`).
+  sessions holds the actor until fan-out finishes.
   Batch with `addTools(_:)` when one notification for the whole tool batch is
-  the intended behavior (`ServerHandle.swift:70-86`).
+  the intended behavior.
 
 For typical hot-reload patterns — a config-file watcher rebuilding the tool
 list on file change — call the handle directly from the watcher's task. The
@@ -251,5 +246,4 @@ for await change in configWatcher.changes {
 
 Every tracked server gets one `tools/list_changed` attempt per successful
 `removeTool(named:)` that removed a name and one for the final `addTools(_:)`
-call (`ServerHandle.swift:88-95`, `ServerHandle.swift:70-86`,
-`ServerHandle.swift:163-173`).
+call.
