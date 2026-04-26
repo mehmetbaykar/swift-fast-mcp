@@ -15,9 +15,7 @@ public struct StructuredSearchTool {
   }
 
   @Parameter("Search query")
-  public var query: String = ""
-
-  public init() {}
+  public var query: String
 
   public func execute() async throws -> SearchResult {
     guard !query.isEmpty else {
