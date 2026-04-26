@@ -26,6 +26,24 @@ The same check fires inside `HubToolAdapter.register(_:)` and inside the
 `FastMCPServerHandle.addTool(_:)` / `addTools(_:)` paths, so a duplicate
 name is always a registration-time failure.
 
+## Upstream aggregation is tools-only
+
+`addUpstreamMCPServer(name:transport:toolNamePrefix:)` supports Streamable HTTP
+upstreams and proxies `tools/list` / `tools/call` only. It does not aggregate
+upstream resources or prompts, subscribe to upstream
+`notifications/tools/list_changed`, or reconnect automatically after an
+upstream connection drops. Call `refreshUpstreamMCPServer(named:)` to resync a
+dynamic upstream catalogue.
+
+Duplicate upstream server names are rejected eagerly with
+`FastMCPError.invalidConfiguration`. The upstream server name is the default
+visible tool namespace (`docs_search` for `name: "docs"`); pass
+`toolNamePrefix: ""` only when raw upstream names are intentional.
+
+Headers passed to `.streamableHTTP(endpoint:headers:streaming:)` are forwarded
+through the SDK transport. Treat `Authorization` and similar values as secrets
+and keep production request logging conservative.
+
 ## `.inMemory` is unpaired
 
 `Transport.inMemory` constructs a fresh `InMemoryTransport()` with no

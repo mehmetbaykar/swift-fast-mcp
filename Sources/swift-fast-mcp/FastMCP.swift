@@ -168,8 +168,12 @@ extension FastMCP {
       name: String,
       transport: UpstreamMCPTransport,
       toolNamePrefix: String? = nil
-    ) -> Builder {
+    ) throws -> Builder {
       var copy = self
+      if copy.upstreamMCPServers.contains(where: { $0.name == name }) {
+        throw FastMCPError.invalidConfiguration(
+          "Upstream MCP server '\(name)' is already registered")
+      }
       copy.upstreamMCPServers.append(
         UpstreamMCPServerConfiguration(
           name: name,

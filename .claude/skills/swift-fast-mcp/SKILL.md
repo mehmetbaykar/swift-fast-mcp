@@ -137,8 +137,7 @@ try await FastMCP.builder()
     transport: .streamableHTTP(
       endpoint: URL(string: "https://mcp.firecrawl.dev/v2/mcp")!,
       headers: ["Authorization": "Bearer <token>"]
-    ),
-    toolNamePrefix: "firecrawl_"
+    )
   )
   .transport(.stdio)
   .logger(logger)
@@ -151,10 +150,19 @@ Important constraints:
   `HTTPClientTransport` handles MCP Streamable HTTP.
 - Do not document or generate stdio subprocess upstreams yet. FastMCP does not
   spawn `npx`, `uvx`, or `python` upstream servers in this version.
-- Prefix upstream tool names when they may collide with local tools or other
-  upstream servers. Duplicate visible names throw `HubBridgeError.duplicateTool`.
+- The upstream server name is the default visible tool namespace:
+  `name: "firecrawl"` exposes `firecrawl_scrape`. Pass `toolNamePrefix` to
+  override the namespace, or `toolNamePrefix: ""` only when raw upstream names
+  are intentional.
+- Duplicate upstream server names are rejected eagerly. Duplicate visible tool
+  names throw `HubBridgeError.duplicateTool`.
 - Proxied tools preserve upstream `MCP.Tool` metadata and return the upstream
   `CallTool.Result`, including `structuredContent` when available.
+- V1 aggregates tools only. Do not claim upstream resources/prompts,
+  auto-reconnect/backoff, or upstream `notifications/tools/list_changed`
+  passthrough support.
+- Treat headers such as `Authorization` as secrets; recommend conservative
+  production log levels when users pass sensitive upstream headers.
 
 ## Quick Reference: Tool
 

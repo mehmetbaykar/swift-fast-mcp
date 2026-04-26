@@ -31,8 +31,7 @@ try await FastMCP.builder()
         transport: .streamableHTTP(
             endpoint: URL(string: "https://mcp.firecrawl.dev/v2/mcp")!,
             headers: ["Authorization": "Bearer <token>"]
-        ),
-        toolNamePrefix: "firecrawl_"
+        )
     )
     .run()
 ```
@@ -184,19 +183,20 @@ All builder methods return a new `Builder` (value semantics) and can be chained.
 ### Capabilities
 
 ```swift
-.addTools([WeatherTool(), MathTool(), StructuredSearchTool()])   // Register tool implementations
-.addUpstreamMCPServer(                         // Proxy tools from a Streamable HTTP MCP server
-    name: "docs",
-    transport: .streamableHTTP(endpoint: docsMCPURL),
-    toolNamePrefix: "docs_"
-)
-.addResources([ConfigResource()])         // Register resource implementations
-.addPrompts([GreetingPrompt()])          // Register prompt implementations
-.enableCompletions()                      // Advertise completions capability
-.enableLogging()                          // Advertise logging capability
+try FastMCP.builder()
+    .addTools([WeatherTool(), MathTool(), StructuredSearchTool()])   // Register tool implementations
+    .addUpstreamMCPServer(                    // Proxy Streamable HTTP upstream tools as docs_*
+        name: "docs",
+        transport: .streamableHTTP(endpoint: docsMCPURL)
+    )
+    .addResources([ConfigResource()])         // Register resource implementations
+    .addPrompts([GreetingPrompt()])           // Register prompt implementations
+    .enableCompletions()                      // Advertise completions capability
+    .enableLogging()                          // Advertise logging capability
 ```
 
-Duplicate tools/resources/prompts are deduplicated automatically. The first registration wins.
+Duplicate upstream server names and tool names fail early. Resources and prompts
+are deduplicated automatically; the first registration wins.
 
 ### Transport and infrastructure
 

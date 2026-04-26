@@ -105,8 +105,7 @@ try await FastMCP.builder()
     transport: .streamableHTTP(
       endpoint: URL(string: "https://example.com/mcp")!,
       headers: ["Authorization": "Bearer <token>"]
-    ),
-    toolNamePrefix: "docs_"
+    )
   )
   .transport(.http(port: 8080))
   .run()
@@ -122,6 +121,12 @@ streaming.
 FastMCP does not launch upstream stdio subprocesses in this version. If an
 upstream MCP server is only available as `npx`, `uvx`, or `python -m`, run or
 wrap that server behind a Streamable HTTP endpoint before aggregating it.
+The upstream `name` is used as the default visible tool prefix (`docs_search`);
+pass `toolNamePrefix` only to customize the namespace or `""` to opt out. V1
+does not aggregate upstream resources/prompts, reconnect automatically, or
+subscribe to upstream `notifications/tools/list_changed`. Treat sensitive
+headers, especially `Authorization`, as secrets and avoid verbose request
+logging in production.
 
 ### Stateful vs stateless
 

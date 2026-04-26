@@ -46,7 +46,7 @@ When invoked:
 - `@MCPPrompt` requires the user to declare a zero-argument `getMessages()`; the macro emits the `getMessages(arguments:)` dispatcher that decodes raw `[String: String]` arguments
 - Non-optional non-primitive prompt arguments need a default value or custom initializer; the synthesized empty initializer only covers primitive, optional, and array shapes
 - Use `MCPResourceMimeType` cases (`.applicationJSON`, `.textPlain`, `.other("custom/mime")`) for resource MIME types
-- `addTools(_:)` is `throws`; call it with `try`. The other `add…` methods are non-throwing and dedup silently
+- `addTools(_:)` and `addUpstreamMCPServer(name:transport:toolNamePrefix:)` are `throws`; call them with `try`. Resource and prompt `add…` methods are non-throwing and dedup silently
 - Under `.stdio`, route lifecycle messages through `Logger`. Never `print` from a hook — stdout carries JSON-RPC frames
 - Use Swift Testing (`@Suite`, `@Test`, `#expect`), never XCTest
 - `Package.swift` depends on `swift-fast-mcp` from `2.3.0`; Swift 6.2+; `platforms: [.macOS(.v14)]` for executable targets

@@ -3,6 +3,7 @@ import FastMCPAIBridge
 import Foundation
 import Logging
 import MCP
+import SwiftAIHub
 import Testing
 
 @testable import FastMCP
@@ -15,9 +16,9 @@ import Testing
 struct UpstreamMCPAggregationTests {
 
   @Test
-  func `builder stores streamable HTTP upstream configuration`() {
+  func `builder stores streamable HTTP upstream configuration`() throws {
     let endpoint = URL(string: "https://example.com/mcp")!
-    let builder = FastMCP.builder().addUpstreamMCPServer(
+    let builder = try FastMCP.builder().addUpstreamMCPServer(
       name: "docs",
       transport: .streamableHTTP(
         endpoint: endpoint,
@@ -41,6 +42,42 @@ struct UpstreamMCPAggregationTests {
     #expect(storedEndpoint == endpoint)
     #expect(headers["Authorization"] == "Bearer token")
     #expect(streaming == false)
+  }
+
+  @Test
+  func `builder rejects duplicate upstream server names`() throws {
+    let endpoint = URL(string: "https://example.com/mcp")!
+    let builder = try FastMCP.builder().addUpstreamMCPServer(
+      name: "docs",
+      transport: .streamableHTTP(endpoint: endpoint)
+    )
+
+    #expect(throws: FastMCPError.self) {
+      _ = try builder.addUpstreamMCPServer(
+        name: "docs",
+        transport: .streamableHTTP(endpoint: endpoint)
+      )
+    }
+  }
+
+  @Test
+  func `detached handle upstream mutations throw consistently`() async {
+    let handle = FastMCPServerHandle()
+    let endpoint = URL(string: "https://example.com/mcp")!
+    let configuration = UpstreamMCPServerConfiguration(
+      name: "docs",
+      transport: .streamableHTTP(endpoint: endpoint)
+    )
+
+    await #expect(throws: FastMCPError.self) {
+      try await handle.addUpstreamMCPServer(configuration)
+    }
+    await #expect(throws: FastMCPError.self) {
+      try await handle.refreshUpstreamMCPServer(named: "docs")
+    }
+    await #expect(throws: FastMCPError.self) {
+      try await handle.removeUpstreamMCPServer(named: "docs")
+    }
   }
 
   @Test
@@ -174,62 +211,256 @@ struct UpstreamMCPAggregationTests {
   }
 
   @Test
-  func `manager discovers and forwards through local streamable HTTP upstream`() async throws {
-    let port = Int.random(in: 18_000...28_000)
-    let upstreamHTTPServer = FastMCPHTTPServer(
-      configuration: .init(host: "127.0.0.1", port: port, endpoint: "/mcp"),
-      statelessServerFactory: { transport in
-        let server = Server(
-          name: "upstream",
-          version: "1.0.0",
-          capabilities: .init(tools: .init())
-        )
-        await server.register(hubTools: try HubToolAdapter(tools: [MathTool()]))
-        try await server.start(transport: transport)
-        return server
-      },
-      logger: Logger(label: "test.upstream")
+  func `upstream configuration defaults visible prefix to server name`() async throws {
+    let configuration = UpstreamMCPServerConfiguration(
+      name: "docs",
+      transport: .streamableHTTP(endpoint: URL(string: "https://example.com/mcp")!)
     )
 
-    let serverTask = Task {
-      try await upstreamHTTPServer.start()
-    }
-    defer {
-      serverTask.cancel()
-      Task { await upstreamHTTPServer.stop() }
-    }
+    #expect(configuration.visibleToolName(for: "search") == "docs_search")
+  }
 
-    try await waitForHTTPServer(port: port, endpoint: "/mcp")
+  @Test
+  func `upstream configuration respects custom and empty prefixes`() {
+    let custom = UpstreamMCPServerConfiguration(
+      name: "docs",
+      transport: .streamableHTTP(endpoint: URL(string: "https://example.com/mcp")!),
+      toolNamePrefix: "doc_"
+    )
+    let raw = UpstreamMCPServerConfiguration(
+      name: "docs",
+      transport: .streamableHTTP(endpoint: URL(string: "https://example.com/mcp")!),
+      toolNamePrefix: ""
+    )
 
+    #expect(custom.visibleToolName(for: "search") == "doc_search")
+    #expect(raw.visibleToolName(for: "search") == "search")
+  }
+
+  @Test
+  func `manager discovers and forwards through local streamable HTTP upstream`() async throws {
+    try await withLocalUpstreamHTTPServer(tools: [MathTool()]) { endpoint in
+      let adapter = HubToolAdapter()
+      let manager = UpstreamMCPManager(toolAdapter: adapter, logger: Logger(label: "test.manager"))
+      try await manager.addServer(
+        UpstreamMCPServerConfiguration(
+          name: "upstream",
+          transport: .streamableHTTP(endpoint: endpoint, streaming: false),
+          toolNamePrefix: "up_"
+        )
+      )
+
+      let tools = await adapter.listTools()
+      #expect(tools.map(\.name) == ["up_math"])
+
+      let result = try await adapter.callTool(
+        name: "up_math",
+        arguments: .object([
+          "operation": .string("add"),
+          "a": .double(2),
+          "b": .double(3),
+        ]),
+        meta: nil
+      )
+      #expect(result.content == [.text(text: "\"Result: 5.0\"", annotations: nil, _meta: nil)])
+      await manager.disconnectAll()
+    }
+  }
+
+  @Test
+  func `manager refresh returns false when upstream tool descriptors are unchanged`() async throws {
+    try await withLocalUpstreamHTTPServer(tools: [MathTool()]) { endpoint in
+      let adapter = HubToolAdapter()
+      let manager = UpstreamMCPManager(toolAdapter: adapter, logger: Logger(label: "test.manager"))
+      try await manager.addServer(
+        UpstreamMCPServerConfiguration(
+          name: "upstream",
+          transport: .streamableHTTP(endpoint: endpoint, streaming: false)
+        )
+      )
+
+      let changed = try await manager.refreshServer(named: "upstream")
+      #expect(changed == false)
+      #expect(await adapter.names() == ["upstream_math"])
+      await manager.disconnectAll()
+    }
+  }
+
+  @Test
+  func `manager refresh swaps proxied tools when upstream changes`() async throws {
+    let upstreamAdapter = try HubToolAdapter(tools: [MathTool()])
+    try await withLocalUpstreamHTTPServer(adapter: upstreamAdapter) { endpoint in
+      let adapter = HubToolAdapter()
+      let manager = UpstreamMCPManager(toolAdapter: adapter, logger: Logger(label: "test.manager"))
+      try await manager.addServer(
+        UpstreamMCPServerConfiguration(
+          name: "upstream",
+          transport: .streamableHTTP(endpoint: endpoint, streaming: false)
+        )
+      )
+      await upstreamAdapter.unregister(name: "math")
+      try await upstreamAdapter.register(WeatherTool())
+
+      let changed = try await manager.refreshServer(named: "upstream")
+      #expect(changed == true)
+      #expect(await adapter.names() == ["upstream_weather"])
+      await manager.disconnectAll()
+    }
+  }
+
+  @Test
+  func `manager remove unregisters proxied tools`() async throws {
+    try await withLocalUpstreamHTTPServer(tools: [MathTool()]) { endpoint in
+      let adapter = HubToolAdapter()
+      let manager = UpstreamMCPManager(toolAdapter: adapter, logger: Logger(label: "test.manager"))
+      try await manager.addServer(
+        UpstreamMCPServerConfiguration(
+          name: "upstream",
+          transport: .streamableHTTP(endpoint: endpoint, streaming: false)
+        )
+      )
+
+      let changed = await manager.removeServer(named: "upstream")
+      #expect(changed == true)
+      #expect(await adapter.names().isEmpty)
+    }
+  }
+
+  @Test
+  func `manager disconnectAll unregisters proxied tools`() async throws {
+    try await withLocalUpstreamHTTPServer(tools: [MathTool()]) { endpoint in
+      let adapter = HubToolAdapter()
+      let manager = UpstreamMCPManager(toolAdapter: adapter, logger: Logger(label: "test.manager"))
+      try await manager.addServer(
+        UpstreamMCPServerConfiguration(
+          name: "upstream",
+          transport: .streamableHTTP(endpoint: endpoint, streaming: false)
+        )
+      )
+
+      await manager.disconnectAll()
+      #expect(await adapter.names().isEmpty)
+    }
+  }
+
+  @Test
+  func `manager addServer throws for unreachable upstream and leaves adapter unchanged`()
+    async throws
+  {
     let adapter = HubToolAdapter()
     let manager = UpstreamMCPManager(toolAdapter: adapter, logger: Logger(label: "test.manager"))
-    try await manager.addServer(
-      UpstreamMCPServerConfiguration(
-        name: "upstream",
-        transport: .streamableHTTP(
-          endpoint: URL(string: "http://127.0.0.1:\(port)/mcp")!,
-          streaming: false
-        ),
-        toolNamePrefix: "up_"
+    let endpoint = URL(string: "http://127.0.0.1:9/mcp")!
+
+    await #expect(throws: Error.self) {
+      try await manager.addServer(
+        UpstreamMCPServerConfiguration(
+          name: "missing",
+          transport: .streamableHTTP(endpoint: endpoint, streaming: false)
+        )
       )
-    )
-    defer {
-      Task { await manager.disconnectAll() }
     }
+    #expect(await adapter.names().isEmpty)
+  }
 
-    let tools = await adapter.listTools()
-    #expect(tools.map(\.name) == ["up_math"])
+  @Test
+  func `manager handles upstream with zero tools`() async throws {
+    try await withLocalUpstreamHTTPServer(tools: []) { endpoint in
+      let adapter = HubToolAdapter()
+      let manager = UpstreamMCPManager(toolAdapter: adapter, logger: Logger(label: "test.manager"))
+      try await manager.addServer(
+        UpstreamMCPServerConfiguration(
+          name: "empty",
+          transport: .streamableHTTP(endpoint: endpoint, streaming: false)
+        )
+      )
 
-    let result = try await adapter.callTool(
-      name: "up_math",
-      arguments: .object([
-        "operation": .string("add"),
-        "a": .double(2),
-        "b": .double(3),
-      ]),
-      meta: nil
-    )
-    #expect(result.content == [.text(text: "\"Result: 5.0\"", annotations: nil, _meta: nil)])
+      #expect(await adapter.names().isEmpty)
+      let changed = try await manager.refreshServer(named: "empty")
+      #expect(changed == false)
+      await manager.disconnectAll()
+    }
+  }
+}
+
+private actor UpstreamToolCatalog {
+  private var tools: [any SwiftAIHub.Tool]
+
+  init(_ tools: [any SwiftAIHub.Tool]) {
+    self.tools = tools
+  }
+
+  func replaceTools(_ tools: [any SwiftAIHub.Tool]) {
+    self.tools = tools
+  }
+
+  func adapter() throws -> HubToolAdapter {
+    try HubToolAdapter(tools: tools)
+  }
+}
+
+private func withLocalUpstreamHTTPServer(
+  tools: [any SwiftAIHub.Tool],
+  body: (URL) async throws -> Void
+) async throws {
+  try await withLocalUpstreamHTTPServer(tools: tools) { endpoint, _ in
+    try await body(endpoint)
+  }
+}
+
+private func withLocalUpstreamHTTPServer(
+  tools: [any SwiftAIHub.Tool],
+  body: (URL, UpstreamToolCatalog) async throws -> Void
+) async throws {
+  let catalog = UpstreamToolCatalog(tools)
+  try await withLocalUpstreamHTTPServer(adapterProvider: { try await catalog.adapter() }) {
+    endpoint in
+    try await body(endpoint, catalog)
+  }
+}
+
+private func withLocalUpstreamHTTPServer(
+  adapter: HubToolAdapter,
+  body: (URL) async throws -> Void
+) async throws {
+  try await withLocalUpstreamHTTPServer(adapterProvider: { adapter }, body: body)
+}
+
+private func withLocalUpstreamHTTPServer(
+  adapterProvider: @escaping @Sendable () async throws -> HubToolAdapter,
+  body: (URL) async throws -> Void
+) async throws {
+  let port = Int.random(in: 18_000...28_000)
+  let upstreamHTTPServer = FastMCPHTTPServer(
+    configuration: .init(host: "127.0.0.1", port: port, endpoint: "/mcp"),
+    statelessServerFactory: { transport in
+      let server = Server(
+        name: "upstream",
+        version: "1.0.0",
+        capabilities: .init(tools: .init())
+      )
+      await server.register(hubTools: try await adapterProvider())
+      try await server.start(transport: transport)
+      return server
+    },
+    logger: Logger(label: "test.upstream")
+  )
+
+  let serverTask = Task {
+    try await upstreamHTTPServer.start()
+  }
+  let endpoint = URL(string: "http://127.0.0.1:\(port)/mcp")!
+
+  do {
+    try await waitForHTTPServer(port: port, endpoint: "/mcp")
+    try await body(endpoint)
+    serverTask.cancel()
+    await upstreamHTTPServer.stop()
+    _ = await serverTask.result
+  } catch {
+    serverTask.cancel()
+    await upstreamHTTPServer.stop()
+    _ = await serverTask.result
+    throw error
   }
 }
 

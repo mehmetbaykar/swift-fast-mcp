@@ -24,6 +24,7 @@ let builder = FastMCP.builder()
 | `instructions` | `func instructions(_ instructions: String) -> Builder` | `nil` |
 | `icons` | `func icons(_ icons: [Icon]) -> Builder` | `nil` |
 | `addTools` | `func addTools(_ newTools: [any SwiftAIHub.Tool]) throws -> Builder` | `[]` |
+| `addUpstreamMCPServer` | `func addUpstreamMCPServer(name: String, transport: UpstreamMCPTransport, toolNamePrefix: String? = nil) throws -> Builder` | `[]` |
 | `addResources` | `func addResources(_ newResources: [any MCPResource]) -> Builder` | `[]` |
 | `addPrompts` | `func addPrompts(_ newPrompts: [any MCPPrompt]) -> Builder` | `[]` |
 | `enableCompletions` | `func enableCompletions(_ enabled: Bool = true) -> Builder` | `false` |
@@ -40,9 +41,14 @@ let builder = FastMCP.builder()
 | `run` | `func run() async throws` | — |
 
 `addTools` is `throws` and rejects duplicate tool names eagerly with
-`HubBridgeError.duplicateTool(name:)` (`FastMCP.swift:80`). The other
-`add…` methods are non-throwing and silently drop duplicates (resources by
-`uri`, prompts by `name`).
+`HubBridgeError.duplicateTool(name:)` (`FastMCP.swift:80`).
+`addUpstreamMCPServer` is `throws` and rejects duplicate upstream server names
+eagerly with `FastMCPError.invalidConfiguration`. When `toolNamePrefix` is
+omitted, the upstream server name becomes the visible namespace, so
+`name: "docs"` exposes `docs_search`; pass a custom prefix to override it or
+`toolNamePrefix: ""` to expose raw upstream names. Resource and prompt `add…`
+methods are non-throwing and silently drop duplicates (resources by `uri`,
+prompts by `name`).
 
 Generated server packages depend on `swift-fast-mcp` from `"2.3.0"`.
 FastMCP's own `Package.swift` declares swift-ai-hub from `"0.1.0"` using
@@ -57,13 +63,15 @@ or a custom `MCP.Transport`.
 1. Resolve the logger (custom or one labelled with the server name).
 2. Log a warning when no tools, resources, prompts, or handle are registered.
 3. Build server capabilities (`listChanged: true` when a handle is attached).
-4. Seed the handle with the initial catalogue when present.
-5. For HTTP transports, build a per-session factory with a validation
+4. Create the shared `HubToolAdapter` and connect configured upstream MCP
+   servers, discovering proxied tools before capabilities are advertised.
+5. Seed the handle with the initial catalogue when present.
+6. For HTTP transports, build a per-session factory with a validation
    pipeline from `httpValidation`; for stdio / in-memory / custom, build one `Server`.
-6. Register tools, resources, and prompts on the server(s).
-7. Start the transport inside a `swift-service-lifecycle` `ServiceGroup`
+7. Register tools, resources, and prompts on the server(s).
+8. Start the transport inside a `swift-service-lifecycle` `ServiceGroup`
    with the configured shutdown signals.
-8. `onInitialize` runs whenever a client sends `initialize`; `onStart` runs
+9. `onInitialize` runs whenever a client sends `initialize`; `onStart` runs
    when the service starts; `onShutdown` runs on graceful shutdown.
 
 ## Kitchen-Sink Example

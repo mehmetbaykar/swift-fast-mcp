@@ -106,6 +106,15 @@ public actor HubToolAdapter {
     return before - tools.count
   }
 
+  public func proxiedTools(serverName: String) -> [ProxiedMCPTool] {
+    tools.values.compactMap { entry in
+      guard case .proxied(let tool) = entry, tool.serverName == serverName else {
+        return nil
+      }
+      return tool
+    }
+  }
+
   public func unregisterAllProxiedTools() -> Int {
     let before = tools.count
     tools = tools.filter { _, entry in

@@ -248,8 +248,7 @@ try await FastMCP.builder()
     transport: .streamableHTTP(
       endpoint: URL(string: "https://mcp.firecrawl.dev/v2/mcp")!,
       headers: ["Authorization": "Bearer <token>"]
-    ),
-    toolNamePrefix: "firecrawl_"
+    )
   )
   .transport(.stdio)
   .run()
@@ -257,8 +256,10 @@ try await FastMCP.builder()
 
 At startup, FastMCP connects to each upstream server, calls `tools/list`
 including any paginated cursors, and registers each discovered `MCP.Tool` under
-the visible name. `toolNamePrefix` is prepended before registration, so an
-upstream `scrape` tool becomes `firecrawl_scrape` in the downstream catalogue.
+the visible name. By default, the upstream server name is used as a namespace,
+so the example above exposes an upstream `scrape` tool as `firecrawl_scrape` in
+the downstream catalogue. Pass `toolNamePrefix: "fc_"` to use a custom prefix,
+or `toolNamePrefix: ""` to expose raw upstream tool names.
 
 Proxied tools preserve the upstream MCP descriptor (`title`, `description`,
 `inputSchema`, `outputSchema`, `annotations`, `icons`, and `_meta`) instead of
@@ -267,8 +268,14 @@ server using the original upstream name, and the full upstream `CallTool.Result`
 is returned, including `structuredContent` when the upstream server provides it.
 
 Duplicate visible names still fail at registration time with
-`HubBridgeError.duplicateTool(name:)`. Prefer explicit prefixes for upstream
-servers that may share common tool names such as `search`, `scrape`, or `crawl`.
+`HubBridgeError.duplicateTool(name:)`. Duplicate upstream server names are
+rejected eagerly by the builder.
+
+V1 aggregates tools only. Upstream `resources/*`, `prompts/*`, automatic
+reconnect/backoff, and upstream `notifications/tools/list_changed` passthrough
+are intentionally out of scope; call `refreshUpstreamMCPServer(named:)` when you
+need to resync a dynamic upstream catalogue. If you pass sensitive HTTP headers
+such as `Authorization`, avoid verbose SDK/request logging in production.
 
 ## See also
 

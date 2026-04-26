@@ -21,6 +21,14 @@ public struct UpstreamMCPServerConfiguration: Sendable {
     self.transport = transport
     self.toolNamePrefix = toolNamePrefix
   }
+
+  var effectiveToolNamePrefix: String {
+    toolNamePrefix ?? "\(name)_"
+  }
+
+  func visibleToolName(for originalName: String) -> String {
+    "\(effectiveToolNamePrefix)\(originalName)"
+  }
 }
 
 public enum UpstreamMCPTransport: Sendable {
@@ -73,16 +81,26 @@ actor UpstreamMCPManager {
       throw FastMCPError.invalidConfiguration("Unknown upstream MCP server '\(name)'")
     }
     let tools = try await connection.discoverTools()
+    let currentTools = await toolAdapter.proxiedTools(serverName: name)
+    guard Self.sortedTools(currentTools.map(\.tool)) != Self.sortedTools(tools.map(\.tool)) else {
+      return false
+    }
     try await toolAdapter.replaceProxiedTools(serverName: name, with: tools)
     return true
   }
 
   func disconnectAll() async {
-    let currentConnections = connections.values
+    let currentConnections = Array(connections.values)
     connections.removeAll()
     _ = await toolAdapter.unregisterAllProxiedTools()
     for connection in currentConnections {
       await connection.disconnect()
+    }
+  }
+
+  private static func sortedTools(_ tools: [MCP.Tool]) -> [MCP.Tool] {
+    tools.sorted { lhs, rhs in
+      lhs.name < rhs.name
     }
   }
 }
@@ -141,7 +159,7 @@ private actor UpstreamMCPConnection {
 
     return allTools.map { upstreamTool in
       let originalName = upstreamTool.name
-      let visibleName = "\(configuration.toolNamePrefix ?? "")\(originalName)"
+      let visibleName = configuration.visibleToolName(for: originalName)
       let visibleTool = Self.rename(upstreamTool, to: visibleName)
       return ProxiedMCPTool(
         serverName: configuration.name,

@@ -99,26 +99,32 @@ try await handle.addUpstreamMCPServer(
     transport: .streamableHTTP(
       endpoint: URL(string: "https://mcp.firecrawl.dev/v2/mcp")!,
       headers: ["Authorization": "Bearer <token>"]
-    ),
-    toolNamePrefix: "firecrawl_"
+    )
   )
 )
 
 try await handle.refreshUpstreamMCPServer(named: "firecrawl")
-await handle.removeUpstreamMCPServer(named: "firecrawl")
+try await handle.removeUpstreamMCPServer(named: "firecrawl")
 ```
 
 `addUpstreamMCPServer(_:)` connects to the upstream server, discovers every page
 of `tools/list`, registers the visible proxied tools, and then emits
-`notifications/tools/list_changed`. `refreshUpstreamMCPServer(named:)` discovers
-a fresh upstream tool list and swaps that server's proxied entries atomically:
-if the refreshed visible names collide with existing local or upstream tools,
-the old entries remain visible and the refresh throws. `removeUpstreamMCPServer`
-disconnects the upstream client, removes every tool from that upstream server,
-and notifies only when something changed.
+`notifications/tools/list_changed`. The upstream server name is the default tool
+namespace, so `name: "firecrawl"` exposes `firecrawl_scrape`; pass a custom
+`toolNamePrefix` to override it or `toolNamePrefix: ""` to expose raw names.
+`refreshUpstreamMCPServer(named:)` discovers a fresh upstream tool list and swaps
+that server's proxied entries atomically: if the refreshed visible names collide
+with existing local or upstream tools, the old entries remain visible and the
+refresh throws. It only notifies when the discovered tool descriptors changed.
+`removeUpstreamMCPServer` disconnects the upstream client, removes every tool
+from that upstream server, and notifies only when something changed.
 
 Only Streamable HTTP upstreams are supported here. Stdio subprocess upstreams
-are intentionally not part of this API.
+are intentionally not part of this API. V1 aggregates upstream tools only; it
+does not proxy upstream resources, prompts, automatic reconnect/backoff, or
+upstream `notifications/tools/list_changed`. If you pass sensitive headers such
+as `Authorization`, keep production logging conservative so request metadata is
+not accidentally surfaced by lower-level transports.
 
 ### Resources
 

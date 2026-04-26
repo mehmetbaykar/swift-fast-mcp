@@ -110,8 +110,11 @@ public actor FastMCPServerHandle {
     await notifyToolsChanged()
   }
 
-  public func removeUpstreamMCPServer(named name: String) async {
-    guard let upstreamManager else { return }
+  public func removeUpstreamMCPServer(named name: String) async throws {
+    guard let upstreamManager else {
+      throw FastMCPError.invalidConfiguration(
+        "FastMCPServerHandle is not attached to a running server")
+    }
     let changed = await upstreamManager.removeServer(named: name)
     if changed {
       await notifyToolsChanged()
