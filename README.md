@@ -42,7 +42,7 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp", from: "2.5.0")
+    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp", from: "2.6.0")
 ]
 ```
 

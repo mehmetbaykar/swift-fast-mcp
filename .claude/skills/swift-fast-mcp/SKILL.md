@@ -46,7 +46,7 @@ let package = Package(
   name: "$ARGUMENTS[0]",
   platforms: [.macOS(.v14)],
   dependencies: [
-    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp.git", from: "2.5.0"),
+    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp.git", from: "2.6.0"),
   ],
   targets: [
     .target(
@@ -70,7 +70,7 @@ let package = Package(
 Notes:
 
 - A single dependency on `swift-fast-mcp` is enough for a generated server. FastMCP transitively brings in the official MCP SDK, swift-ai-hub, swift-service-lifecycle, and swift-nio.
-- The FastMCP package declares swift-ai-hub with `.package(url: "https://github.com/mehmetbaykar/swift-ai-hub", from: "0.1.0")` and depends on `.product(name: "SwiftAIHub", package: "swift-ai-hub")` in `Package.swift`.
+- The FastMCP package declares swift-ai-hub with `.package(url: "https://github.com/mehmetbaykar/swift-ai-hub", from: "0.7.0")` and depends on products `SwiftAIHub` and `SwiftAIHubMCP` from package `swift-ai-hub` in `Package.swift`.
 - `import FastMCP` re-exports `FastMCPAIBridge`, `SwiftAIHub`, `Logging`, and `UnixSignals` (`Sources/swift-fast-mcp/Exports.swift`), so user files only need `import FastMCP`.
 - Swift 6.2+, macOS 14+ to match swift-fast-mcp's own platform floor.
 
