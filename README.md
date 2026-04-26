@@ -2,6 +2,14 @@
 
 The fastest way to build MCP servers in Swift.
 
+<p align="center">
+If you found this helpful, you can support more open source work!
+<br><br>
+<a href="https://buymeacoffee.com/mehmetbaykar" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="60"></a>
+</p>
+
+---
+
 ```swift
 try await FastMCP.builder()
     .name("My Server")
@@ -505,14 +513,6 @@ The `@Tool`, `@Generable`, `@Parameter`, and `@Guide` macros come from
 [swift-ai-hub](https://github.com/mehmetbaykar/swift-ai-hub) — see its
 [docs/Macros.md](https://github.com/mehmetbaykar/swift-ai-hub/blob/main/docs/Macros.md)
 for the macro reference.
-
-<p align="center">
-If you found this helpful, you can support more open source work!
-<br><br>
-<a href="https://buymeacoffee.com/mehmetbaykar" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="60"></a>
-</p>
-
----
 
 ## License
 
