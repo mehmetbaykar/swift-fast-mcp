@@ -3,6 +3,8 @@ import FastMCPAIBridge
 import Foundation
 import Logging
 import MCP
+import SwiftAIHub
+import SwiftAIHubMCP
 import Testing
 import UnixSignals
 
@@ -71,6 +73,20 @@ struct BuilderTests {
     let toolNames = builder.hubTools.map { $0.name }
     #expect(toolNames.contains("weather"))
     #expect(toolNames.contains("math"))
+  }
+
+  @Test func `add tools accepts tool source`() async throws {
+    let source = StaticToolSource(tools: [WeatherTool(), MathTool()])
+    let builder = try await FastMCP.builder().addTools(source)
+
+    #expect(builder.hubTools.map(\.name).sorted() == ["math", "weather"])
+  }
+
+  @Test func `add MCP tool provider resolves tools`() async throws {
+    let provider = StaticToolSource(tools: [WeatherTool()])
+    let builder = try await FastMCP.builder().addMCPToolProvider(provider)
+
+    #expect(builder.hubTools.map(\.name) == ["weather"])
   }
 
   @Test func `add tools method rejects duplicate tools`() throws {
@@ -308,6 +324,28 @@ struct BuilderTests {
     #expect(builder.initializeHook != nil)
     #expect(builder.onStartHandler != nil)
     #expect(builder.onShutdownHandler != nil)
+  }
+}
+
+private struct StaticToolSource: MCPToolProviderProtocol {
+  let tools: [any SwiftAIHub.Tool]
+
+  var name: String { "static" }
+  var toolNamePrefix: String? { nil }
+
+  func makeConfiguration() async throws -> MCPToolProvider.Configuration {
+    MCPToolProvider.Configuration(
+      name: name,
+      transport: .streamableHTTP(
+        endpoint: URL(string: "https://example.com/mcp")!,
+        headers: { [:] },
+        streaming: true
+      )
+    )
+  }
+
+  func resolveTools() async throws -> [any SwiftAIHub.Tool] {
+    tools
   }
 }
 

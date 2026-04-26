@@ -1,6 +1,7 @@
 import FastMCPAIBridge
 import MCP
 import SwiftAIHub
+import SwiftAIHubMCP
 
 /// A handle to a running FastMCP server that supports dynamic tool/resource/prompt management.
 ///
@@ -86,6 +87,14 @@ public actor FastMCPServerHandle {
       try await toolAdapter.register(tool)
     }
     await notifyToolsChanged()
+  }
+
+  public func addTools(_ source: any SwiftAIHub.ToolSource) async throws {
+    try await addTools(source.resolveTools())
+  }
+
+  public func addMCPToolProvider(_ provider: any MCPToolProviderProtocol) async throws {
+    try await addTools(provider)
   }
 
   public func removeTool(named name: String) async {

@@ -18,7 +18,7 @@ let package = Package(
     .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.9.1"),
     .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
     .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0"),
-    .package(url: "https://github.com/mehmetbaykar/swift-ai-hub", from: "0.6.1"),
+    .package(url: "https://github.com/mehmetbaykar/swift-ai-hub", from: "0.7.0"),
   ],
   targets: [
     .macro(
@@ -47,6 +47,7 @@ let package = Package(
         .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
         .product(name: "UnixSignals", package: "swift-service-lifecycle"),
         .product(name: "SwiftAIHub", package: "swift-ai-hub"),
+        .product(name: "SwiftAIHubMCP", package: "swift-ai-hub"),
         .product(name: "NIOCore", package: "swift-nio"),
         .product(name: "NIOPosix", package: "swift-nio"),
         .product(name: "NIOHTTP1", package: "swift-nio"),

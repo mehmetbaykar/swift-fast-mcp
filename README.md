@@ -185,6 +185,8 @@ All builder methods return a new `Builder` (value semantics) and can be chained.
 ```swift
 try FastMCP.builder()
     .addTools([WeatherTool(), MathTool(), StructuredSearchTool()])   // Register tool implementations
+    .addMCPToolProvider(firecrawl)            // Register a SwiftAIHubMCP provider directly
+    // Or use .addTools([LocalTool()] + firecrawl) to mix local tools with a ToolSource.
     .addUpstreamMCPServers([                  // Proxy Streamable HTTP upstream tools as docs_*
         .streamableHTTP(name: "docs", endpoint: docsMCPURL)
     ])
@@ -196,6 +198,45 @@ try FastMCP.builder()
 
 Duplicate upstream server names and tool names fail early. Resources and prompts
 are deduplicated automatically; the first registration wins.
+
+Provider-backed tools from `SwiftAIHubMCP` resolve asynchronously, so these
+builder calls are `async throws`:
+
+```swift
+import FastMCP
+import SwiftAIHubMCP
+
+let firecrawl = MCPToolProvider.streamableHTTP(
+    name: "firecrawl",
+    endpoint: URL(string: "https://mcp.firecrawl.dev/v2/mcp")!,
+    headers: ["Authorization": "Bearer \(token)"]
+)
+
+try await FastMCP.builder()
+    .addMCPToolProvider(firecrawl)
+    .run()
+```
+
+Macro sugar works the same way:
+
+```swift
+@MCPToolProvider(
+    name: "firecrawl",
+    transport: .streamableHTTP(
+        endpoint: "https://mcp.firecrawl.dev/v2/mcp",
+        headers: .bearerToken(\.apiKey)
+    )
+)
+struct FirecrawlTools {
+    let apiKey: String
+}
+
+let firecrawl = FirecrawlTools(apiKey: token)
+
+try await FastMCP.builder()
+    .addTools([LocalTool()] + firecrawl)
+    .run()
+```
 
 ### Transport and infrastructure
 
