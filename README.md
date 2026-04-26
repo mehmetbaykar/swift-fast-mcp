@@ -26,13 +26,13 @@ beside your local Swift tools:
 try await FastMCP.builder()
     .name("Gateway")
     .addTools([WeatherTool()])
-    .addUpstreamMCPServer(
-        name: "firecrawl",
-        transport: .streamableHTTP(
+    .addUpstreamMCPServers([
+        .streamableHTTP(
+            name: "firecrawl",
             endpoint: URL(string: "https://mcp.firecrawl.dev/v2/mcp")!,
             headers: ["Authorization": "Bearer <token>"]
         )
-    )
+    ])
     .run()
 ```
 
@@ -185,10 +185,9 @@ All builder methods return a new `Builder` (value semantics) and can be chained.
 ```swift
 try FastMCP.builder()
     .addTools([WeatherTool(), MathTool(), StructuredSearchTool()])   // Register tool implementations
-    .addUpstreamMCPServer(                    // Proxy Streamable HTTP upstream tools as docs_*
-        name: "docs",
-        transport: .streamableHTTP(endpoint: docsMCPURL)
-    )
+    .addUpstreamMCPServers([                  // Proxy Streamable HTTP upstream tools as docs_*
+        .streamableHTTP(name: "docs", endpoint: docsMCPURL)
+    ])
     .addResources([ConfigResource()])         // Register resource implementations
     .addPrompts([GreetingPrompt()])           // Register prompt implementations
     .enableCompletions()                      // Advertise completions capability

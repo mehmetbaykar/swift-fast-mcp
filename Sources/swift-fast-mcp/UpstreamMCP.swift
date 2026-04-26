@@ -22,6 +22,24 @@ public struct UpstreamMCPServerConfiguration: Sendable {
     self.toolNamePrefix = toolNamePrefix
   }
 
+  public static func streamableHTTP(
+    name: String,
+    endpoint: URL,
+    headers: [String: String] = [:],
+    streaming: Bool = true,
+    toolNamePrefix: String? = nil
+  ) -> Self {
+    Self(
+      name: name,
+      transport: .streamableHTTP(
+        endpoint: endpoint,
+        headers: headers,
+        streaming: streaming
+      ),
+      toolNamePrefix: toolNamePrefix
+    )
+  }
+
   var effectiveToolNamePrefix: String {
     toolNamePrefix ?? "\(name)_"
   }

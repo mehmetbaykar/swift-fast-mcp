@@ -36,7 +36,8 @@ upstream connection drops. Call `refreshUpstreamMCPServer(named:)` to resync a
 dynamic upstream catalogue.
 
 Duplicate upstream server names are rejected eagerly with
-`FastMCPError.invalidConfiguration`. The upstream server name is the default
+`FastMCPError.invalidConfiguration`, including duplicates within
+`addUpstreamMCPServers(_:)` batches. The upstream server name is the default
 visible tool namespace (`docs_search` for `name: "docs"`); pass
 `toolNamePrefix: ""` only when raw upstream names are intentional.
 

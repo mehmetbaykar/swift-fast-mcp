@@ -95,18 +95,19 @@ Defaults from `Transport.http`:
 
 The `.transport(...)` setting above controls how clients connect to your
 FastMCP server. Upstream MCP aggregation is configured separately with
-`addUpstreamMCPServer(...)`, and currently supports Streamable HTTP upstreams:
+`addUpstreamMCPServer(...)` or `addUpstreamMCPServers(...)`, and currently
+supports Streamable HTTP upstreams:
 
 ```swift
 try await FastMCP.builder()
   .name("Gateway")
-  .addUpstreamMCPServer(
-    name: "docs",
-    transport: .streamableHTTP(
+  .addUpstreamMCPServers([
+    .streamableHTTP(
+      name: "docs",
       endpoint: URL(string: "https://example.com/mcp")!,
       headers: ["Authorization": "Bearer <token>"]
     )
-  )
+  ])
   .transport(.http(port: 8080))
   .run()
 ```

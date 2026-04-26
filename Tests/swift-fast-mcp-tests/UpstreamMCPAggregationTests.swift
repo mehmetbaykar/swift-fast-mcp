@@ -61,6 +61,60 @@ struct UpstreamMCPAggregationTests {
   }
 
   @Test
+  func `builder stores multiple upstream server configurations`() throws {
+    let docsEndpoint = URL(string: "https://example.com/docs")!
+    let searchEndpoint = URL(string: "https://example.com/search")!
+    let builder = try FastMCP.builder().addUpstreamMCPServers([
+      .streamableHTTP(name: "docs", endpoint: docsEndpoint),
+      UpstreamMCPServerConfiguration(
+        name: "search",
+        transport: .streamableHTTP(endpoint: searchEndpoint)
+      ),
+    ])
+
+    #expect(builder.upstreamMCPServers.map(\.name) == ["docs", "search"])
+  }
+
+  @Test
+  func `builder rejects duplicate upstream server names within batch`() {
+    let endpoint = URL(string: "https://example.com/mcp")!
+
+    #expect(throws: FastMCPError.self) {
+      _ = try FastMCP.builder().addUpstreamMCPServers([
+        .streamableHTTP(name: "docs", endpoint: endpoint),
+        .streamableHTTP(name: "docs", endpoint: endpoint),
+      ])
+    }
+  }
+
+  @Test
+  func `streamableHTTP configuration factory stores transport settings`() {
+    let endpoint = URL(string: "https://example.com/mcp")!
+    let configuration = UpstreamMCPServerConfiguration.streamableHTTP(
+      name: "docs",
+      endpoint: endpoint,
+      headers: ["Authorization": "Bearer token"],
+      streaming: false,
+      toolNamePrefix: "doc_"
+    )
+
+    #expect(configuration.name == "docs")
+    #expect(configuration.toolNamePrefix == "doc_")
+
+    guard
+      case .streamableHTTP(let storedEndpoint, let headers, let streaming) =
+        configuration.transport
+    else {
+      Issue.record("Expected streamableHTTP transport")
+      return
+    }
+
+    #expect(storedEndpoint == endpoint)
+    #expect(headers["Authorization"] == "Bearer token")
+    #expect(streaming == false)
+  }
+
+  @Test
   func `detached handle upstream mutations throw consistently`() async {
     let handle = FastMCPServerHandle()
     let endpoint = URL(string: "https://example.com/mcp")!

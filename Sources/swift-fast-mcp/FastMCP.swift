@@ -169,18 +169,27 @@ extension FastMCP {
       transport: UpstreamMCPTransport,
       toolNamePrefix: String? = nil
     ) throws -> Builder {
-      var copy = self
-      if copy.upstreamMCPServers.contains(where: { $0.name == name }) {
-        throw FastMCPError.invalidConfiguration(
-          "Upstream MCP server '\(name)' is already registered")
-      }
-      copy.upstreamMCPServers.append(
+      try addUpstreamMCPServers([
         UpstreamMCPServerConfiguration(
           name: name,
           transport: transport,
           toolNamePrefix: toolNamePrefix
         )
-      )
+      ])
+    }
+
+    public func addUpstreamMCPServers(_ configurations: [UpstreamMCPServerConfiguration]) throws
+      -> Builder
+    {
+      var copy = self
+      var existingNames = Set(copy.upstreamMCPServers.map(\.name))
+      for configuration in configurations {
+        if !existingNames.insert(configuration.name).inserted {
+          throw FastMCPError.invalidConfiguration(
+            "Upstream MCP server '\(configuration.name)' is already registered")
+        }
+      }
+      copy.upstreamMCPServers.append(contentsOf: configurations)
       return copy
     }
 

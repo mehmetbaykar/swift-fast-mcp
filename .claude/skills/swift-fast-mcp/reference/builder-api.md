@@ -25,6 +25,7 @@ let builder = FastMCP.builder()
 | `icons` | `func icons(_ icons: [Icon]) -> Builder` | `nil` |
 | `addTools` | `func addTools(_ newTools: [any SwiftAIHub.Tool]) throws -> Builder` | `[]` |
 | `addUpstreamMCPServer` | `func addUpstreamMCPServer(name: String, transport: UpstreamMCPTransport, toolNamePrefix: String? = nil) throws -> Builder` | `[]` |
+| `addUpstreamMCPServers` | `func addUpstreamMCPServers(_ configurations: [UpstreamMCPServerConfiguration]) throws -> Builder` | `[]` |
 | `addResources` | `func addResources(_ newResources: [any MCPResource]) -> Builder` | `[]` |
 | `addPrompts` | `func addPrompts(_ newPrompts: [any MCPPrompt]) -> Builder` | `[]` |
 | `enableCompletions` | `func enableCompletions(_ enabled: Bool = true) -> Builder` | `false` |
@@ -42,8 +43,11 @@ let builder = FastMCP.builder()
 
 `addTools` is `throws` and rejects duplicate tool names eagerly with
 `HubBridgeError.duplicateTool(name:)` (`FastMCP.swift:80`).
-`addUpstreamMCPServer` is `throws` and rejects duplicate upstream server names
-eagerly with `FastMCPError.invalidConfiguration`. When `toolNamePrefix` is
+`addUpstreamMCPServer` and `addUpstreamMCPServers` are `throws` and reject
+duplicate upstream server names eagerly with `FastMCPError.invalidConfiguration`,
+including duplicates within a batch. Use
+`UpstreamMCPServerConfiguration.streamableHTTP(name:endpoint:headers:streaming:toolNamePrefix:)`
+for the compact Streamable HTTP configuration form. When `toolNamePrefix` is
 omitted, the upstream server name becomes the visible namespace, so
 `name: "docs"` exposes `docs_search`; pass a custom prefix to override it or
 `toolNamePrefix: ""` to expose raw upstream names. Resource and prompt `add…`

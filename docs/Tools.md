@@ -243,13 +243,13 @@ subprocess upstreams are intentionally out of scope for this API.
 try await FastMCP.builder()
   .name("Aggregated MCP")
   .addTools([WeatherTool()])
-  .addUpstreamMCPServer(
-    name: "firecrawl",
-    transport: .streamableHTTP(
+  .addUpstreamMCPServers([
+    .streamableHTTP(
+      name: "firecrawl",
       endpoint: URL(string: "https://mcp.firecrawl.dev/v2/mcp")!,
       headers: ["Authorization": "Bearer <token>"]
     )
-  )
+  ])
   .transport(.stdio)
   .run()
 ```

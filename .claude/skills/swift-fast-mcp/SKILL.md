@@ -132,13 +132,13 @@ try await FastMCP.builder()
   .addTools([
     // Local SwiftAIHub tools
   ])
-  .addUpstreamMCPServer(
-    name: "firecrawl",
-    transport: .streamableHTTP(
+  .addUpstreamMCPServers([
+    .streamableHTTP(
+      name: "firecrawl",
       endpoint: URL(string: "https://mcp.firecrawl.dev/v2/mcp")!,
       headers: ["Authorization": "Bearer <token>"]
     )
-  )
+  ])
   .transport(.stdio)
   .logger(logger)
   .run()
