@@ -54,7 +54,7 @@ omitted, the upstream server name becomes the visible namespace, so
 methods are non-throwing and silently drop duplicates (resources by `uri`,
 prompts by `name`).
 
-Generated server packages depend on `swift-fast-mcp` from `"2.6.0"`.
+Generated server packages depend on `swift-fast-mcp` from `"2.7.0"`.
 FastMCP's own `Package.swift` declares swift-ai-hub from `"0.8.0"` using
 product `SwiftAIHub` from package `swift-ai-hub`, and
 `Sources/swift-fast-mcp/Exports.swift` re-exports it through `import FastMCP`.
