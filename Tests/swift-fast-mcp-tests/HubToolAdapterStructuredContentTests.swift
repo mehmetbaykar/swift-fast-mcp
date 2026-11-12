@@ -59,7 +59,7 @@ struct HubToolAdapterStructuredContentTests {
     let adapter = try HubToolAdapter(tools: [StructuredSearchTool()])
 
     let listed = await adapter.listTools()
-    let tool = try #require(listed.first { $0.name == "structuredSearch" })
+    let tool = try #require(listed.first { $0.name == "structured_search" })
     guard case .object(let root) = tool.outputSchema else {
       Issue.record("Expected object outputSchema, got \(String(describing: tool.outputSchema))")
       return
@@ -73,7 +73,7 @@ struct HubToolAdapterStructuredContentTests {
     #expect(properties["resultCount"] != nil)
 
     let result = try await adapter.callTool(
-      name: "structuredSearch",
+      name: "structured_search",
       arguments: .object(["query": .string("swift")]),
       meta: nil
     )

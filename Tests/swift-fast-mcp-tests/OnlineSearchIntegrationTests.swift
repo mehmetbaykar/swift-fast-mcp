@@ -2,11 +2,11 @@
 // - Test A (behaviour): OnlineSearchTool.execute() runs end-to-end against the
 //   real OpenAILanguageModel provider with a mocked HTTP transport. The test
 //   drives two scripted HTTP responses — first a tool-call for
-//   `getCurrentDate`, then a final assistant message — exercising the
+//   `get_current_date`, then a final assistant message — exercising the
 //   provider's request building, JSON decode, tool-call loop, and tool-output
 //   posting. Deterministic; no network; runs on Linux CI without any key.
 // - Test B (wire surface): when registered with the FastMCP adapter, only
-//   `onlineSearch` is externally visible; `getCurrentDate` stays internal.
+//   `online_search` is externally visible; `get_current_date` stays internal.
 //
 // Neither test goes through `HubToolAdapter.execute(name:arguments:)` — that
 // is the MCP wire dispatch path, not application API. We call the tool
@@ -220,20 +220,20 @@ final class MockURLProtocol: URLProtocol, @unchecked Sendable {
 @Suite("onlineSearch dual-use integration", .serialized)
 struct OnlineSearchIntegrationTests {
 
-  // Test B — wire visibility. Asserts the MCP surface exposes `onlineSearch`
-  // and keeps `getCurrentDate` out of `tools/list`. Runs on every CI.
+  // Test B — wire visibility. Asserts the MCP surface exposes `online_search`
+  // and keeps `get_current_date` out of `tools/list`. Runs on every CI.
   @Test
-  func `MCP tools/list exposes only onlineSearch; getCurrentDate stays internal`() async throws {
+  func `MCP tools/list exposes only online_search; get_current_date stays internal`() async throws {
     let adapter = try HubToolAdapter(tools: [OnlineSearchTool(llm: StubLanguageModel())])
     let names = await adapter.names()
 
-    #expect(names == ["onlineSearch"])
-    #expect(!names.contains("getCurrentDate"))
+    #expect(names == ["online_search"])
+    #expect(!names.contains("get_current_date"))
   }
 
   // Test A — behaviour. Drives OnlineSearchTool.execute() against the real
   // OpenAILanguageModel provider backed by MockURLProtocol. Two scripted
-  // responses: round 1 emits a tool_call for getCurrentDate; round 2 emits
+  // responses: round 1 emits a tool_call for get_current_date; round 2 emits
   // the final assistant message (containing 2026). Exercises request build,
   // JSON decode, tool-call loop, and tool-output posting end-to-end.
   @Test
@@ -253,7 +253,7 @@ struct OnlineSearchIntegrationTests {
               "id": "call_mock_date",
               "type": "function",
               "function": {
-                "name": "getCurrentDate",
+                "name": "get_current_date",
                 "arguments": "{\\"timezone\\":\\"UTC\\"}"
               }
             }]
@@ -322,18 +322,18 @@ struct OnlineSearchIntegrationTests {
     )
   }
 
-  // Test C — MCP wire surface. Drives `onlineSearch` through
+  // Test C — MCP wire surface. Drives `online_search` through
   // `HubToolAdapter.execute(name:arguments:)` (the path MCP `tools/call`
   // uses) and proves two things the previous tests did not cover:
   //   1) the arg-mapping, dispatch, and result-mapping all work via the
   //      bridge — not via direct `tool.execute(_:)`;
-  //   2) the internal `getCurrentDate` tool was actually invoked mid-loop
+  //   2) the internal `get_current_date` tool was actually invoked mid-loop
   //      inside `OnlineSearchTool.execute`, evidenced by the second HTTP
   //      round-trip being consumed (the scripted second response is only
   //      reachable when the first response's tool_call is dispatched and
   //      the result is posted back to the model).
   @Test(
-    "HubToolAdapter.execute drives tools/call through MCP wire and triggers internal getCurrentDate"
+    "HubToolAdapter.execute drives tools/call through MCP wire and triggers internal get_current_date"
   )
   func onlineSearchViaAdapterExerciseMCPWireAndInternalTool() async throws {
     let firstRoundJSON = """
@@ -351,7 +351,7 @@ struct OnlineSearchIntegrationTests {
               "id": "call_mock_date",
               "type": "function",
               "function": {
-                "name": "getCurrentDate",
+                "name": "get_current_date",
                 "arguments": "{\\"timezone\\":\\"UTC\\"}"
               }
             }]
@@ -401,7 +401,7 @@ struct OnlineSearchIntegrationTests {
     )
 
     // Wire OnlineSearchTool through the bridge adapter. Note: only
-    // onlineSearch is registered — getCurrentDate is an internal-only
+    // online_search is registered — get_current_date is an internal-only
     // tool baked into OnlineSearchTool.execute's inner session.
     let adapter = try HubToolAdapter(tools: [OnlineSearchTool(llm: openAI)])
 
@@ -417,7 +417,7 @@ struct OnlineSearchIntegrationTests {
       )
     )
     let content = try await adapter.makeContent(
-      name: "onlineSearch",
+      name: "online_search",
       arguments: HubValueMapper.value(from: argContent)
     )
 
@@ -437,11 +437,11 @@ struct OnlineSearchIntegrationTests {
     #expect(rendered.contains("2026"), "final response should echo mocked date: \(rendered)")
 
     // The second HTTP round only consumes when the first-round tool_call
-    // for getCurrentDate was dispatched and its output posted back to
+    // for get_current_date was dispatched and its output posted back to
     // the model. Two consumptions = internal tool invoked mid-loop.
     #expect(
       MockURLProtocol.consumedCount() == 2,
-      "expected 2 HTTP round-trips (proves getCurrentDate ran mid-loop), saw \(MockURLProtocol.consumedCount())"
+      "expected 2 HTTP round-trips (proves get_current_date ran mid-loop), saw \(MockURLProtocol.consumedCount())"
     )
     #expect(
       MockURLProtocol.remainingCount() == 0,

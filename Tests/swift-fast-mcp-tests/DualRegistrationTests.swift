@@ -232,10 +232,9 @@ struct DualRegistrationTests {
     // --- MCP surface ---
     //
     // `makeContent` routes a String-returning tool through the default
-    // `Tool.makeOutputSegments` implementation, which wraps String output as
-    // a `.structure` segment (String conforms to ConvertibleToGeneratedContent).
-    // `HubToolAdapter.toolContent(from:)` unwraps `.string` structure kinds to
-    // raw text so the MCP payload matches the in-process String exactly.
+    // `Tool.makeOutputSegments` implementation, which emits String output as
+    // a `.text` segment. The MCP payload therefore matches the in-process
+    // String exactly.
     let mcpContent = try await adapter.makeContent(name: "echo", arguments: arguments)
     #expect(mcpContent.count == 1)
     guard case .text(let mcpPayload, _, _) = mcpContent.first else {
@@ -257,16 +256,13 @@ struct DualRegistrationTests {
       from: HubValueMapper.generatedContent(from: arguments)
     )
     #expect(inProcessSegments.count == 1)
-    guard case .structure(let structure) = inProcessSegments.first else {
+    guard case .text(let textSegment) = inProcessSegments.first else {
       Issue.record(
-        "Expected .structure segment from default String dispatch, got \(String(describing: inProcessSegments.first))"
+        "Expected .text segment from default String dispatch, got \(String(describing: inProcessSegments.first))"
       )
       return
     }
-    guard case .string(let inProcessPayload) = structure.content.kind else {
-      Issue.record("Expected .string kind inside structure, got \(structure.content.kind)")
-      return
-    }
+    let inProcessPayload = textSegment.content
 
     // --- Cross-surface equality: identical input → identical payload ---
     #expect(
@@ -365,7 +361,7 @@ struct DualRegistrationTests {
     let mcpError: Error
     do {
       _ = try await adapter.makeContent(
-        name: "strictEcho",
+        name: "strict_echo",
         arguments: .object(["text": .string("")])
       )
       Issue.record("Expected HubBridgeError from MCP path on empty input")
@@ -378,14 +374,14 @@ struct DualRegistrationTests {
       Issue.record("Expected HubBridgeError.invalidArguments, got \(mcpError)")
       return
     }
-    #expect(toolName == "strictEcho")
+    #expect(toolName == "strict_echo")
     #expect(
       reason.contains("empty") || reason.contains("StrictError"),
       "reason should reference underlying error, got \(reason)"
     )
 
     // HubErrorMapper must fold that wrapping error into isError:true text.
-    let callResult = HubErrorMapper.mapCallToolError(mcpError, toolName: "strictEcho")
+    let callResult = HubErrorMapper.mapCallToolError(mcpError, toolName: "strict_echo")
     #expect(callResult.isError == true)
     #expect(callResult.content.count == 1)
     guard case .text(let errorText, _, _) = callResult.content.first else {
@@ -393,7 +389,7 @@ struct DualRegistrationTests {
         "Expected .text error content, got \(String(describing: callResult.content.first))")
       return
     }
-    #expect(errorText.contains("strictEcho"))
+    #expect(errorText.contains("strict_echo"))
 
     // --- In-process surface: raw error bubbles out of execute(_:) ---
     do {

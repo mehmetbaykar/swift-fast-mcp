@@ -128,7 +128,7 @@ struct McpInspectorIntegrationTests {
     let names = Set(tools.compactMap { $0["name"] as? String })
 
     #expect(
-      names == ["math", "greeting", "weather", "structuredSearch"],
+      names == ["math", "greeting", "weather", "structured_search"],
       "Expected exactly the four ExampleServer tools, got \(names). Raw:\n\(raw)")
   }
 
