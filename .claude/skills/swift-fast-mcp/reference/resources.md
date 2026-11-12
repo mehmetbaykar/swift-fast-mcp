@@ -13,6 +13,7 @@ an `MCPResource`; the struct supplies its body with the
 @MCPResource(
   _ uri: String,
   name: String? = nil,
+  title: String? = nil,
   description: String? = nil,
   mimeType: MCPResourceMimeType? = nil
 )
@@ -22,10 +23,13 @@ Applied to a struct, the macro emits:
 
 - `public var uri: String`
 - `public var name: String?` only when `name:` is present
+- `public var title: String?` only when `title:` is present
 - `public var description: String?` only when `description:` is present
 - `public var mimeType: String?` only when `mimeType:` resolves
 - `public init()` only when the struct has no user-declared init
 - `extension … : MCPResource, Sendable`
+
+Optional `title:` is a human-readable display name for UIs.
 
 The macro does *not* emit `content`. The struct must satisfy the
 `MCPResource` protocol by declaring a content property:
@@ -51,6 +55,7 @@ import FastMCP
 @MCPResource(
   "config://app/settings",
   name: "App Settings",
+  title: "App Settings",
   description: "Application configuration and feature flags",
   mimeType: .applicationJSON
 )

@@ -25,10 +25,20 @@ public struct MCPPromptMacro: MemberMacro, ExtensionMacro {
 
     let typeName = structDecl.name.text
     let promptName = extractName(from: node) ?? derivePromptName(from: typeName)
+    let promptTitle = extractTitle(from: node)
     let arguments = extractArguments(from: declaration)
+
+    if promptTitle != nil, hasStoredProperty(named: "title", in: declaration) {
+      throw PromptMacroError.titleCollidesWithStoredProperty
+    }
 
     var members: [DeclSyntax] = []
     members.append("public var name: String { \(raw: literalString(promptName)) }")
+    if let promptTitle {
+      members.append(
+        "public var title: String? { \(raw: literalString(promptTitle)) }"
+      )
+    }
     members.append(
       "public var description: String? { \(raw: literalString(description)) }"
     )
@@ -76,8 +86,19 @@ public struct MCPPromptMacro: MemberMacro, ExtensionMacro {
   }
 
   private static func extractName(from node: AttributeSyntax) -> String? {
+    extractLabeledString(from: node, label: "name")
+  }
+
+  private static func extractTitle(from node: AttributeSyntax) -> String? {
+    extractLabeledString(from: node, label: "title")
+  }
+
+  private static func extractLabeledString(
+    from node: AttributeSyntax,
+    label: String
+  ) -> String? {
     guard let list = node.arguments?.as(LabeledExprListSyntax.self) else { return nil }
-    for arg in list where arg.label?.text == "name" {
+    for arg in list where arg.label?.text == label {
       if let literal = arg.expression.as(StringLiteralExprSyntax.self),
         let segment = literal.segments.first?.as(StringSegmentSyntax.self)
       {
@@ -85,6 +106,25 @@ public struct MCPPromptMacro: MemberMacro, ExtensionMacro {
       }
     }
     return nil
+  }
+
+  private static func hasStoredProperty(
+    named name: String,
+    in declaration: some DeclGroupSyntax
+  ) -> Bool {
+    for member in declaration.memberBlock.members {
+      guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
+      // Skip computed properties (those with accessors and no initializer storage).
+      for binding in varDecl.bindings {
+        guard let pattern = binding.pattern.as(IdentifierPatternSyntax.self),
+          pattern.identifier.text == name
+        else { continue }
+        if binding.accessorBlock == nil {
+          return true
+        }
+      }
+    }
+    return false
   }
 
   private static func derivePromptName(from typeName: String) -> String {
@@ -357,14 +397,18 @@ struct PromptArgumentInfo {
   let hasDefault: Bool
 }
 
-enum PromptMacroError: Error, CustomStringConvertible {
+public enum PromptMacroError: Error, CustomStringConvertible {
   case missingDescription
   case onlyApplicableToStruct
+  case titleCollidesWithStoredProperty
 
-  var description: String {
+  public var description: String {
     switch self {
     case .missingDescription: return "@MCPPrompt requires a description string"
     case .onlyApplicableToStruct: return "@MCPPrompt can only be applied to structs"
+    case .titleCollidesWithStoredProperty:
+      return
+        "Cannot use title: on @MCPPrompt when the struct already has a stored property named \"title\". Rename the property and keep the wire name with @PromptArgument(..., name: \"title\")."
     }
   }
 }

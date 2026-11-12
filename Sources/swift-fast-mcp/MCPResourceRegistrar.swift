@@ -16,6 +16,7 @@ extension MCPResource {
     Resource(
       name: name ?? uri,
       uri: uri,
+      title: title,
       description: description,
       mimeType: mimeType
     )

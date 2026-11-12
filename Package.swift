@@ -57,7 +57,13 @@ let package = Package(
     .executableTarget(name: "Example", dependencies: ["FastMCP", "ExampleTools"]),
     .testTarget(
       name: "swift-fast-mcp-tests",
-      dependencies: ["FastMCP", "ExampleTools"],
+      dependencies: [
+        "FastMCP",
+        "ExampleTools",
+        "FastMCPMacros",
+        .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+        .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+      ],
       path: "Tests/swift-fast-mcp-tests"
     ),
   ]

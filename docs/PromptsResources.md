@@ -11,14 +11,15 @@ resources:
 ## `@MCPPrompt`
 
 ```swift
-@attached(member, names: named(name), named(description), named(arguments), named(init), named(getMessages))
+@attached(member, names: named(name), named(title), named(description), named(arguments), named(init), named(getMessages))
 @attached(extension, conformances: MCPPrompt, Sendable)
-public macro MCPPrompt(_ description: String, name: String? = nil)
+public macro MCPPrompt(_ description: String, name: String? = nil, title: String? = nil)
 ```
 
 Apply `@MCPPrompt("description")` to a struct. The implementation emits:
 
 - `public var name: String`
+- `public var title: String?` only when `title:` is present
 - `public var description: String?`
 - `public var arguments: [PromptArgumentSpec]`
 - `public init()` when the struct does not declare an initializer
@@ -28,6 +29,8 @@ Apply `@MCPPrompt("description")` to a struct. The implementation emits:
 The description is required, and the macro applies only to structs. If `name:`
 is omitted, the macro drops a trailing `Prompt` suffix from the type name and
 lowercases the first character. `GreetingPrompt` becomes `greeting`.
+Optional `title:` is a human-readable display name for UIs; omit it to leave
+`title` nil.
 
 The generated `getMessages(arguments:)` dispatcher copies `self`, decodes
 `@PromptArgument` values from the raw `[String: String]` argument dictionary,
@@ -88,11 +91,14 @@ requires a present raw value.
 typealias Messages = [PromptMessage]
 
 var name: String { get }
+var title: String? { get }
 var description: String? { get }
 var arguments: [PromptArgumentSpec] { get }
 
 func getMessages(arguments: [String: String]) async throws -> Messages
 ```
+
+`title` defaults to `nil` via the protocol extension.
 
 `PromptArgumentSpec` contains `name`, `description`, and `required`.
 
@@ -122,7 +128,7 @@ text message.
 Exact `GreetingPrompt` excerpt from `Sources/ExampleTools/GreetingPrompt.swift`:
 
 ```swift
-@MCPPrompt("A friendly greeting conversation starter")
+@MCPPrompt("A friendly greeting conversation starter", title: "Friendly Greeting")
 public struct GreetingPrompt {
   @PromptArgument("Who to greet", name: "name")
   public var who: String
@@ -155,11 +161,12 @@ public struct GreetingPrompt {
 ## `@MCPResource`
 
 ```swift
-@attached(member, names: named(uri), named(name), named(description), named(mimeType), named(init))
+@attached(member, names: named(uri), named(name), named(title), named(description), named(mimeType), named(init))
 @attached(extension, conformances: MCPResource, Sendable)
 public macro MCPResource(
   _ uri: String,
   name: String? = nil,
+  title: String? = nil,
   description: String? = nil,
   mimeType: MCPResourceMimeType? = nil
 )
@@ -169,10 +176,13 @@ Apply `@MCPResource("uri")` to a struct. The implementation emits:
 
 - `public var uri: String`
 - `public var name: String?` only when `name:` is present
+- `public var title: String?` only when `title:` is present
 - `public var description: String?` only when `description:` is present
 - `public var mimeType: String?` only when `mimeType:` resolves
 - `public init()` when the struct does not declare an initializer
 - `extension Type: MCPResource, Swift.Sendable`
+
+Optional `title:` is a human-readable display name for UIs.
 
 The URI is required, and the macro applies only to structs. The macro does not
 emit `content`; the struct must satisfy the `MCPResource` protocol by declaring
@@ -183,9 +193,10 @@ a resource content property.
 public var content: Content { ... }
 ```
 
-`MCPResource` declares `typealias Content = [ResourceContentItem]`.
-`ResourceContentItem` stores either `.text(String)` or `.blob(String)` plus an
-optional per-item MIME type. `ResourceContentBuilder` is
+`MCPResource` declares `typealias Content = [ResourceContentItem]` plus `uri`,
+optional `name`, `title`, `description`, and `mimeType` (`title` defaults to
+`nil`). `ResourceContentItem` stores either `.text(String)` or `.blob(String)`
+plus an optional per-item MIME type. `ResourceContentBuilder` is
 `ContentBuilder<ResourceContentItem>`.
 
 ## Config Resource Example
@@ -198,6 +209,7 @@ import FastMCP
 @MCPResource(
   "config://app/settings",
   name: "App Settings",
+  title: "App Settings",
   description: "Application configuration and feature flags",
   mimeType: .applicationJSON
 )

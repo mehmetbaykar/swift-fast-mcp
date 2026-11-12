@@ -1,6 +1,6 @@
 # `@MCPPrompt` Reference
 
-Prompts in FastMCP are authored with `@MCPPrompt(_:name:)` and
+Prompts in FastMCP are authored with `@MCPPrompt(_:name:title:)` and
 `@PromptArgument(_:name:required:)`. The macros come from swift-fast-mcp
 itself (`Sources/swift-fast-mcp/FastMCPMacros.swift`,
 `Sources/FastMCPMacros/MCPPromptMacro.swift`,
@@ -10,13 +10,14 @@ itself (`Sources/swift-fast-mcp/FastMCPMacros.swift`,
 ## Macro shape
 
 ```swift
-@MCPPrompt("description", name: "optional_wire_name")
+@MCPPrompt("description", name: "optional_wire_name", title: "optional_display_name")
 @PromptArgument("description", name: "optional_arg_name", required: true)
 ```
 
 `@MCPPrompt` applies only to structs. It synthesises:
 
 - `public var name: String`
+- `public var title: String?` only when `title:` is present
 - `public var description: String?`
 - `public var arguments: [PromptArgumentSpec]`
 - `public init()` (only when the struct has no user-declared init)
@@ -25,7 +26,7 @@ itself (`Sources/swift-fast-mcp/FastMCPMacros.swift`,
 
 When `name:` is omitted, the macro strips a trailing `Prompt` from the type
 name and lowercases the first character. `GreetingPrompt` becomes
-`greeting`.
+`greeting`. Optional `title:` is a human-readable display name for UIs.
 
 The generated `getMessages(arguments:)` dispatcher decodes
 `@PromptArgument` values out of the raw `[String: String]` payload, copies
@@ -73,7 +74,7 @@ public enum GreetingTone: String, CaseIterable {
   case casual, formal, professional
 }
 
-@MCPPrompt("A friendly greeting conversation starter")
+@MCPPrompt("A friendly greeting conversation starter", title: "Friendly Greeting")
 public struct GreetingPrompt {
   @PromptArgument("Who to greet", name: "name")
   public var who: String
