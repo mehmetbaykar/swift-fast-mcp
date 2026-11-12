@@ -51,9 +51,12 @@ public actor HubToolAdapter {
   }
 
   private var tools: [String: Entry] = [:]
+  /// Registration order for `listTools` / `names` / `snapshot` / proxied queries.
+  private var order: [String] = []
 
   public init() {
     self.tools = [:]
+    self.order = []
   }
 
   public init(tools: [any SwiftAIHub.Tool]) throws {
@@ -62,6 +65,7 @@ public actor HubToolAdapter {
         throw HubBridgeError.duplicateTool(name: tool.name)
       }
       self.tools[tool.name] = .native(tool)
+      self.order.append(tool.name)
     }
   }
 
@@ -70,6 +74,7 @@ public actor HubToolAdapter {
       throw HubBridgeError.duplicateTool(name: tool.name)
     }
     tools[tool.name] = .native(tool)
+    order.append(tool.name)
   }
 
   public func register(_ tool: ProxiedMCPTool) throws {
@@ -77,28 +82,50 @@ public actor HubToolAdapter {
       throw HubBridgeError.duplicateTool(name: tool.name)
     }
     tools[tool.name] = .proxied(tool)
+    order.append(tool.name)
   }
 
   public func register(_ newTools: [ProxiedMCPTool]) throws {
-    var next = tools
-    try Self.insert(newTools, into: &next)
-    tools = next
+    var nextTools = tools
+    var nextOrder = order
+    try Self.insert(newTools, into: &nextTools, order: &nextOrder)
+    tools = nextTools
+    order = nextOrder
   }
 
   public func replaceProxiedTools(
     serverName: String,
     with newTools: [ProxiedMCPTool]
   ) throws {
-    var next = tools.filter { _, entry in
+    var nextTools = tools
+    var nextOrder = order
+
+    let insertAt =
+      nextOrder.firstIndex { name in
+        guard case .proxied(let tool) = nextTools[name] else { return false }
+        return tool.serverName == serverName
+      } ?? nextOrder.endIndex
+
+    nextOrder.removeAll { name in
+      guard case .proxied(let tool) = nextTools[name] else { return false }
+      return tool.serverName == serverName
+    }
+    nextTools = nextTools.filter { _, entry in
       guard case .proxied(let tool) = entry else { return true }
       return tool.serverName != serverName
     }
-    try Self.insert(newTools, into: &next)
-    tools = next
+
+    try Self.insert(newTools, into: &nextTools, order: &nextOrder, at: insertAt)
+    tools = nextTools
+    order = nextOrder
   }
 
   public func unregisterProxiedTools(serverName: String) -> Int {
     let before = tools.count
+    order.removeAll { name in
+      guard case .proxied(let tool) = tools[name] else { return false }
+      return tool.serverName == serverName
+    }
     tools = tools.filter { _, entry in
       guard case .proxied(let tool) = entry else { return true }
       return tool.serverName != serverName
@@ -107,8 +134,8 @@ public actor HubToolAdapter {
   }
 
   public func proxiedTools(serverName: String) -> [ProxiedMCPTool] {
-    tools.values.compactMap { entry in
-      guard case .proxied(let tool) = entry, tool.serverName == serverName else {
+    order.compactMap { name in
+      guard case .proxied(let tool) = tools[name], tool.serverName == serverName else {
         return nil
       }
       return tool
@@ -117,6 +144,10 @@ public actor HubToolAdapter {
 
   public func unregisterAllProxiedTools() -> Int {
     let before = tools.count
+    order.removeAll { name in
+      if case .proxied = tools[name] { return true }
+      return false
+    }
     tools = tools.filter { _, entry in
       guard case .proxied = entry else { return true }
       return false
@@ -126,21 +157,23 @@ public actor HubToolAdapter {
 
   public func unregister(name: String) {
     tools.removeValue(forKey: name)
+    order.removeAll { $0 == name }
   }
 
   public func names() -> [String] {
-    Array(tools.keys)
+    order
   }
 
   public func snapshot() -> [any SwiftAIHub.Tool] {
-    tools.values.compactMap { entry in
-      guard case .native(let tool) = entry else { return nil }
+    order.compactMap { name in
+      guard case .native(let tool) = tools[name] else { return nil }
       return tool
     }
   }
 
   public func listTools() -> [MCP.Tool] {
-    tools.values.map { entry in
+    order.compactMap { name in
+      guard let entry = tools[name] else { return nil }
       switch entry {
       case .native(let tool):
         return HubToolMapper.mapTool(tool)
@@ -314,14 +347,20 @@ public actor HubToolAdapter {
     }
   }
 
-  private static func insert(_ newTools: [ProxiedMCPTool], into tools: inout [String: Entry])
-    throws
-  {
+  private static func insert(
+    _ newTools: [ProxiedMCPTool],
+    into tools: inout [String: Entry],
+    order: inout [String],
+    at index: Int? = nil
+  ) throws {
+    var insertIndex = index ?? order.endIndex
     for tool in newTools {
       if tools[tool.name] != nil {
         throw HubBridgeError.duplicateTool(name: tool.name)
       }
       tools[tool.name] = .proxied(tool)
+      order.insert(tool.name, at: insertIndex)
+      insertIndex += 1
     }
   }
 }
