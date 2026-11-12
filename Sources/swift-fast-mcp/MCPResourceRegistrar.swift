@@ -44,7 +44,7 @@ extension Server {
 
     self.withMethodHandler(ReadResource.self) { params async throws in
       guard let resource = resources.first(where: { $0.uri == params.uri }) else {
-        throw MCPError.invalidRequest("Unknown resource URI: \(params.uri)")
+        throw MCPError.invalidParams("Unknown resource URI: \(params.uri)")
       }
       return try await resource.read(uri: params.uri)
     }
