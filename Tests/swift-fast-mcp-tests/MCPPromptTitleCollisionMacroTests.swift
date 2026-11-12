@@ -1,5 +1,5 @@
 #if canImport(FastMCPMacros) && canImport(SwiftSyntaxMacrosTestSupport)
-  import FastMCPMacros
+  @testable import FastMCPMacros
   import SwiftSyntaxMacros
   import SwiftSyntaxMacrosTestSupport
   import Testing
@@ -34,8 +34,7 @@
           """,
         diagnostics: [
           DiagnosticSpec(
-            message:
-              "Cannot use title: on @MCPPrompt when the struct already has a stored property named \"title\". Rename the property and keep the wire name with @PromptArgument(..., name: \"title\").",
+            message: PromptMacroError.titleCollidesWithStoredProperty.description,
             line: 1,
             column: 1
           )

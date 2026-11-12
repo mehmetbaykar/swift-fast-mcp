@@ -23,11 +23,31 @@ private struct MultilineStringTool: SwiftAIHub.Tool {
   }
 }
 
+/// Reaches the string-kind `.structure` guard in `toolContent(from:)` —
+/// plain `String` outputs now take the `.text` segment path.
+private struct StringKindStructureTool: SwiftAIHub.Tool {
+  let name = "stringKindStructure"
+  let description = "Returns a string-kind GeneratedContent structure segment."
+
+  @Generable
+  struct Arguments {}
+
+  static let fixture = "line one\nline \"two\""
+
+  func call(arguments: Arguments) async throws -> GeneratedContent {
+    GeneratedContent(kind: .string(Self.fixture))
+  }
+
+  func makeOutputSegments(from arguments: GeneratedContent) async throws -> [Transcript.Segment] {
+    [.structure(.init(source: name, content: GeneratedContent(kind: .string(Self.fixture))))]
+  }
+}
+
 @Suite("HubToolAdapter plain string results")
 struct HubToolAdapterPlainStringTests {
 
   @Test
-  func `string structure segment is emitted as raw text not quoted JSON`() async throws {
+  func `plain String tool output is emitted as raw text not quoted JSON`() async throws {
     let adapter = try HubToolAdapter(tools: [MultilineStringTool()])
     let result = try await adapter.callTool(
       name: "multilineString",
@@ -41,6 +61,26 @@ struct HubToolAdapterPlainStringTests {
       return
     }
     #expect(text == MultilineStringTool.fixture)
+    #expect(text.contains("\n"))
+    #expect(!text.hasPrefix("\""))
+    #expect(result.structuredContent == nil)
+  }
+
+  @Test
+  func `string structure segment is emitted as raw text not quoted JSON`() async throws {
+    let adapter = try HubToolAdapter(tools: [StringKindStructureTool()])
+    let result = try await adapter.callTool(
+      name: "stringKindStructure",
+      arguments: .object([:]),
+      meta: nil
+    )
+
+    #expect(result.content.count == 1)
+    guard case .text(let text, _, _) = result.content.first else {
+      Issue.record("Expected one text block, got \(String(describing: result.content.first))")
+      return
+    }
+    #expect(text == StringKindStructureTool.fixture)
     #expect(text.contains("\n"))
     #expect(!text.hasPrefix("\""))
     #expect(result.structuredContent == nil)

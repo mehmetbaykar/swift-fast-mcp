@@ -397,12 +397,12 @@ struct PromptArgumentInfo {
   let hasDefault: Bool
 }
 
-public enum PromptMacroError: Error, CustomStringConvertible {
+enum PromptMacroError: Error, CustomStringConvertible {
   case missingDescription
   case onlyApplicableToStruct
   case titleCollidesWithStoredProperty
 
-  public var description: String {
+  var description: String {
     switch self {
     case .missingDescription: return "@MCPPrompt requires a description string"
     case .onlyApplicableToStruct: return "@MCPPrompt can only be applied to structs"
