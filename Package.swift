@@ -14,10 +14,10 @@ let package = Package(
     .executable(name: "Example", targets: ["Example"]),
   ],
   dependencies: [
-    .package(url: "https://github.com/modelcontextprotocol/swift-sdk", from: "0.12.0"),
-    .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.9.1"),
-    .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
-    .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0"),
+    .package(url: "https://github.com/modelcontextprotocol/swift-sdk", from: "0.12.1"),
+    .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.13.0"),
+    .package(url: "https://github.com/apple/swift-nio.git", from: "2.105.0"),
+    .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.2"),
     .package(url: "https://github.com/mehmetbaykar/swift-ai-hub", branch: "feature/tool-annotations-text-output"),
   ],
   targets: [
