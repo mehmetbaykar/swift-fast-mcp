@@ -234,18 +234,14 @@ struct DualRegistrationTests {
     // `makeContent` routes a String-returning tool through the default
     // `Tool.makeOutputSegments` implementation, which wraps String output as
     // a `.structure` segment (String conforms to ConvertibleToGeneratedContent).
-    // `HubToolAdapter.toolContent(from:)` then serializes the structure to
-    // JSON text. The emitted `.text` payload is therefore the JSON-encoded
-    // form of the raw in-process String — same semantic content, different
-    // wire framing. See HubToolAdapterImageTests `structuredOutputFallsBackToJSONText`
-    // for the matching direct coverage.
+    // `HubToolAdapter.toolContent(from:)` unwraps `.string` structure kinds to
+    // raw text so the MCP payload matches the in-process String exactly.
     let mcpContent = try await adapter.makeContent(name: "echo", arguments: arguments)
     #expect(mcpContent.count == 1)
-    guard case .text(let mcpText, _, _) = mcpContent.first else {
+    guard case .text(let mcpPayload, _, _) = mcpContent.first else {
       Issue.record("Expected .text MCP content, got \(String(describing: mcpContent.first))")
       return
     }
-    let mcpPayload = try JSONDecoder().decode(String.self, from: Data(mcpText.utf8))
 
     // --- In-process surface ---
     //

@@ -302,6 +302,12 @@ public actor HubToolAdapter {
         return .resourceLink(uri: url.absoluteString, name: url.lastPathComponent)
       }
     case .structure(let structure):
+      // Plain strings must not go out as quoted JSON (`"line\n…"`). swift-ai-hub
+      // 0.8.0 wraps `String` tool outputs in a `.structure` segment whose kind
+      // is `.string`; emit the raw string as text instead.
+      if case .string(let text) = structure.content.kind {
+        return .text(text: text, annotations: nil, _meta: nil)
+      }
       // Keep serialized JSON in `content` for older clients (MCP SHOULD).
       // Object payloads are also returned via `CallTool.Result.structuredContent`.
       return .text(text: structure.content.jsonString, annotations: nil, _meta: nil)

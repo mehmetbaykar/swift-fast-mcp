@@ -155,9 +155,8 @@ struct McpInspectorIntegrationTests {
 
     let content = json?["content"] as? [[String: Any]] ?? []
     let firstText = (content.first?["text"] as? String) ?? ""
-    // MathTool returns `"Result: 5.0"` as a Swift String; the FastMCP bridge
-    // encodes that as a JSON string, so the outer quotes are part of the text
-    // payload. We assert a substring to stay resilient to future formatting.
+    // MathTool returns `Result: 5.0` as a Swift String; the bridge emits that
+    // as raw text. We assert a substring to stay resilient to formatting.
     #expect(
       firstText.contains("Result: 5"),
       "Expected math result payload to contain 'Result: 5', got raw:\n\(raw)")
