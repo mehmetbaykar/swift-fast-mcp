@@ -10,7 +10,8 @@ public enum HubToolMapper {
     return MCP.Tool(
       name: tool.name,
       description: tool.description,
-      inputSchema: inputSchema(for: tool)
+      inputSchema: inputSchema(for: tool),
+      outputSchema: outputSchema(for: tool)
     )
   }
 
@@ -31,6 +32,32 @@ public enum HubToolMapper {
       "type": .string("object"),
       "additionalProperties": .bool(true),
     ])
+  }
+
+  /// Projects the tool's `Output` type into a JSON Schema `Value` for MCP
+  /// `tools/list` `outputSchema`, when that type is a `Generable` object.
+  ///
+  /// Returns a schema only when `Output` conforms to `Generable` and the
+  /// converted schema has root `"type": "object"`. Non-object outputs
+  /// (`String`, numbers, `Bool`, arrays, enums, `GeneratedContent`) yield `nil`.
+  public static func outputSchema(for tool: any SwiftAIHub.Tool) -> Value? {
+    guard let schema = outputGenerationSchema(for: tool),
+      let value = jsonSchemaValue(from: schema),
+      case .object(let fields) = value,
+      fields["type"] == .string("object")
+    else {
+      return nil
+    }
+    return value
+  }
+
+  /// Opens the `any Tool` existential to read `Output.generationSchema` when
+  /// `Output` is `Generable`.
+  private static func outputGenerationSchema(for tool: any SwiftAIHub.Tool) -> GenerationSchema? {
+    func schema<T: SwiftAIHub.Tool>(_ tool: T) -> GenerationSchema? {
+      (T.Output.self as? any Generable.Type)?.generationSchema
+    }
+    return schema(tool)
   }
 
   // MARK: - Conversion

@@ -156,9 +156,9 @@ public actor HubToolAdapter {
   ///
   /// - Note: This path collapses image segments to a sentinel string and
   ///   stringifies structured output. Prefer ``makeContent(name:arguments:)``
-  ///   when bridging directly to MCP `Tool.Content`, which preserves typed
-  ///   image blocks and only falls back to JSON text for structured output
-  ///   (the MCP SDK does not yet expose structured content on CallTool).
+  ///   or ``callTool(name:arguments:meta:)`` when bridging directly to MCP
+  ///   `Tool.Content`, which preserves typed image blocks and also surfaces
+  ///   object structured output via `CallTool.Result.structuredContent`.
   public func execute(name: String, arguments: Value) async throws -> GeneratedContent {
     guard let entry = tools[name] else {
       throw HubBridgeError.toolNotFound(name)
@@ -181,10 +181,9 @@ public actor HubToolAdapter {
   /// - `.image(.data)` → `.image(data: base64, mimeType:)`
   /// - `.image(.url)` → `.resourceLink(uri:)` (MCP image content requires
   ///   inline data + mimeType; URL-only images are surfaced as a link)
-  /// - `.structure` → `.text(jsonString)` — the current MCP SDK's
-  ///   `Tool.Content` enum is sealed and does not expose a structured
-  ///   content case on CallTool responses; we serialize as JSON text.
-  ///   TODO: switch to a structured content case once the MCP SDK adds one.
+  /// - `.structure` → `.text(jsonString)` in `content` for compatibility;
+  ///   object payloads are also returned as `CallTool.Result.structuredContent`
+  ///   via ``callTool(name:arguments:meta:)``.
   public func makeContent(name: String, arguments: Value) async throws -> [MCP.Tool.Content] {
     let result = try await callTool(name: name, arguments: arguments, meta: nil)
     return result.content
@@ -200,8 +199,10 @@ public actor HubToolAdapter {
 
     switch entry {
     case .native(let tool):
-      let content = try await makeNativeContent(tool: tool, arguments: arguments)
-      return CallTool.Result(content: content, isError: false)
+      let (content, structuredContent) = try await makeNativeContent(
+        tool: tool, arguments: arguments)
+      return CallTool.Result(
+        content: content, structuredContent: structuredContent, isError: false)
     case .proxied(let tool):
       let objectArguments: [String: Value]?
       if case .object(let fields) = arguments {
@@ -213,9 +214,9 @@ public actor HubToolAdapter {
     }
   }
 
-  private func makeNativeContent(tool: any SwiftAIHub.Tool, arguments: Value) async throws -> [MCP
-    .Tool.Content]
-  {
+  private func makeNativeContent(tool: any SwiftAIHub.Tool, arguments: Value) async throws -> (
+    [MCP.Tool.Content], Value?
+  ) {
     let hubArgs = HubValueMapper.generatedContent(from: arguments)
     let segments: [Transcript.Segment]
     do {
@@ -223,7 +224,21 @@ public actor HubToolAdapter {
     } catch {
       throw HubBridgeError.invalidArguments(tool: tool.name, reason: "\(error)")
     }
-    return segments.map(Self.toolContent(from:))
+    let content = segments.map(Self.toolContent(from:))
+    return (content, Self.structuredContent(from: segments))
+  }
+
+  /// Returns `structuredContent` when the segments contain exactly one
+  /// `.structure` segment whose payload is a JSON object.
+  static func structuredContent(from segments: [Transcript.Segment]) -> Value? {
+    let structures = segments.compactMap { segment -> GeneratedContent? in
+      guard case .structure(let structure) = segment else { return nil }
+      return structure.content
+    }
+    guard structures.count == 1, let content = structures.first else { return nil }
+    let value = HubValueMapper.value(from: content)
+    guard case .object = value else { return nil }
+    return value
   }
 
   private func dispatch(tool: any SwiftAIHub.Tool, arguments: GeneratedContent) async throws
@@ -267,8 +282,9 @@ public actor HubToolAdapter {
   }
 
   /// Map a single hub transcript segment onto an MCP content block, preserving
-  /// typed image payloads and falling back to JSON text for structured output
-  /// (see ``makeContent(name:arguments:)`` for the SDK constraint).
+  /// typed image payloads. Structured segments are serialized as JSON text in
+  /// `content`; object payloads are also exposed as `structuredContent` by
+  /// ``callTool(name:arguments:meta:)``.
   static func toolContent(from segment: Transcript.Segment) -> MCP.Tool.Content {
     switch segment {
     case .text(let text):
@@ -286,9 +302,8 @@ public actor HubToolAdapter {
         return .resourceLink(uri: url.absoluteString, name: url.lastPathComponent)
       }
     case .structure(let structure):
-      // MCP SDK's Tool.Content has no structured-content case on CallTool
-      // responses yet; serialize to JSON text so the client still receives
-      // the full payload instead of a sentinel.
+      // Keep serialized JSON in `content` for older clients (MCP SHOULD).
+      // Object payloads are also returned via `CallTool.Result.structuredContent`.
       return .text(text: structure.content.jsonString, annotations: nil, _meta: nil)
     }
   }
