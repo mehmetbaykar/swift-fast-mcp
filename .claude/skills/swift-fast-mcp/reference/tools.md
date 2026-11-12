@@ -18,7 +18,7 @@ The MCP wire shape is documented in
 Flat form:
 
 ```swift
-@Tool("description")
+@Tool("description", title: "Display Name", readOnly: true)
 public struct MyTool {
   @Parameter("…") public var x: T = defaultValue
 
@@ -29,7 +29,7 @@ public struct MyTool {
 Nested form:
 
 ```swift
-@Tool("description")
+@Tool("description", title: "Display Name", readOnly: true)
 public struct MyTool {
   @Generable
   public struct Arguments {
@@ -48,6 +48,8 @@ Rules enforced by `@Tool`:
 - `Output` is inferred from the `execute` signature; it must satisfy
   `PromptRepresentable`.
 - The description must be a string literal.
+- Optional `title:`, `readOnly:`, `destructive:`, `idempotent:`, and
+  `openWorld:` publish MCP display title and behavior hints.
 - Plain stored properties on the tool struct are allowed for dependencies;
   the macro synthesizes `init()` only when no user initializer exists and all
   stored properties can be initialized by an empty initializer.
@@ -56,13 +58,16 @@ Derived values:
 
 | From | Rule |
 |---|---|
-| Wire `name` | Type name with a trailing `Tool` stripped, first letter lowercased. `WeatherTool` → `weather`. |
+| Wire `name` | Type name with a trailing `Tool` stripped, then snake_cased. `WeatherTool` → `weather`, `StructuredSearchTool` → `structured_search`. |
 | Wire `description` | The macro's string argument. |
+| Wire `title` / hints | Optional macro arguments; `nil` omits the field on the wire. |
 | `inputSchema` | Generated from flat `@Parameter` properties or nested `Arguments` by `@Generable`. |
+| `outputSchema` | Present only when `Output` is a `@Generable` object type. |
 | `Output` | Inferred from `execute`. |
 
 The current `@Tool` macro has no `name:` argument and emits `name` from
 `Self.schema.name`. Rename the Swift type when the wire name needs to change.
+`tools/list` returns tools in registration order.
 
 Plain stored properties on the tool struct that are neither flat `@Parameter`
 fields nor part of the nested `Arguments` type are treated as init-injected
@@ -89,7 +94,12 @@ public enum TemperatureUnit: String, CaseIterable {
   case celsius, fahrenheit
 }
 
-@Tool("Get current weather for a location")
+@Tool(
+  "Get current weather for a location",
+  title: "Weather",
+  readOnly: true,
+  openWorld: false
+)
 public struct WeatherTool {
   @Generable
   public struct Arguments {
@@ -120,16 +130,17 @@ The exact wire payload is shown in `docs/Tools.md`.
 
 The shape of `execute`'s return type drives the wire shape:
 
-- **`String`** — single `text` content block whose payload is the JSON-encoded
-  string (because `String` conforms to `Generable`).
-- **A `@Generable` struct or enum** — single `text` content block whose payload
-  is `GeneratedContent.jsonString`.
+- **`String`** — plain text in a single `text` content block (not quoted JSON).
+- **A `@Generable` object struct** — JSON text in `content` plus
+  `structuredContent`; `tools/list` also publishes an `outputSchema`.
+- **Arrays, numbers, and other non-object results** — JSON text in `content`
+  only; no `structuredContent` and no `outputSchema`.
 - **Anything else `PromptRepresentable`** — single `text` content block
   containing `output.promptRepresentation.description`.
 
-Structured output is just a `@Generable` return type; no separate protocol
-or wrapper exists. Tools that need to emit images can override the hub-level
-`makeOutputSegments(from:)` (see `docs/Tools.md`).
+Structured object output is just a `@Generable` return type; no separate
+protocol or wrapper exists. Tools that need to emit images can override the
+hub-level `makeOutputSegments(from:)` (see `docs/Tools.md`).
 
 ## Errors
 

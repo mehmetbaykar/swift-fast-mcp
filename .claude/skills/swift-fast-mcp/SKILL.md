@@ -169,7 +169,12 @@ Important constraints:
 ```swift
 import FastMCP
 
-@Tool("Get current weather for a location")
+@Tool(
+  "Get current weather for a location",
+  title: "Weather",
+  readOnly: true,
+  openWorld: false
+)
 public struct WeatherTool {
   @Parameter("Location name or coordinates")
   public var location: String = ""
@@ -184,11 +189,11 @@ public struct WeatherTool {
 }
 ```
 
-The `@Tool` macro derives the wire `name` by stripping a trailing `Tool` from the type name and lowercasing the first character (`WeatherTool` → `weather`). Description is the macro's string argument. Simple tools can use flat `@Parameter` stored properties and a no-argument `execute()`. Tools with reusable argument payloads can instead declare a nested `@Generable struct Arguments` and `execute(_ arguments:)`. Mark each model-visible field with `@Parameter("…")` (or `@Guide(description:)`) for the description that reaches the wire.
+The `@Tool` macro derives the wire `name` by stripping a trailing `Tool` from the type name and snake_casing the remainder (`WeatherTool` → `weather`, `StructuredSearchTool` → `structured_search`). Description is the macro's string argument. Optional `title:` and hint arguments (`readOnly:`, `destructive:`, `idempotent:`, `openWorld:`) publish MCP display metadata. Simple tools can use flat `@Parameter` stored properties and a no-argument `execute()`. Tools with reusable argument payloads can instead declare a nested `@Generable struct Arguments` and `execute(_ arguments:)`. Mark each model-visible field with `@Parameter("…")` (or `@Guide(description:)`) for the description that reaches the wire.
 
-There is no current `@Tool` `name:` parameter. Rename the Swift type when the wire name must change.
+There is no current `@Tool` `name:` parameter. Rename the Swift type when the wire name must change. `tools/list` returns tools in registration order.
 
-`execute` returns whatever you want the model to see. `String` flows through `GeneratedContent(kind: .string(...))`; `tools/call` serializes generated content as MCP text, so clients receive JSON string text for plain `String` returns. A custom `@Generable` return type flows out as a JSON-encoded text content block. See `docs/Tools.md` for the full wire shape and `../swift-ai-hub/docs/Macros.md` for the macro contract.
+`execute` returns whatever you want the model to see. A `String` result is sent as plain text. A `@Generable` object result is sent as `structuredContent` plus a JSON text block, and `tools/list` publishes an `outputSchema`. Arrays, numbers, and other non-object results stay JSON text with no `outputSchema`. See `docs/Tools.md` for the full wire shape and `../swift-ai-hub/docs/Macros.md` for the macro contract.
 
 ## Quick Reference: Structured Output
 
@@ -206,7 +211,12 @@ public struct SearchResult {
   public var resultCount: Int
 }
 
-@Tool("Return search results with typed structured output")
+@Tool(
+  "Return search results with typed structured output",
+  title: "Structured Search",
+  readOnly: true,
+  openWorld: false
+)
 public struct StructuredSearchTool {
   public struct QueryError: Error, CustomStringConvertible {
     public let description: String
@@ -227,7 +237,7 @@ public struct StructuredSearchTool {
 }
 ```
 
-The bridge serialises the value through `GeneratedContent.jsonString` and emits a single `text` content block (`Sources/FastMCPAIBridge/HubToolAdapter.swift`). Errors thrown from `execute(_:)` are wrapped as `HubBridgeError.invalidArguments(...)` and surface as `isError: true` on the wire.
+The bridge emits a JSON `text` content block plus `structuredContent` for object results, and publishes an `outputSchema` on `tools/list` (`Sources/FastMCPAIBridge/HubToolAdapter.swift`). Errors thrown from `execute(_:)` are wrapped as `HubBridgeError.invalidArguments(...)` and surface as `isError: true` on the wire.
 
 ## Quick Reference: Resource
 
