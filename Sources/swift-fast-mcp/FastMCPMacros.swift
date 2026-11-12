@@ -2,10 +2,11 @@
 
 @attached(
   member,
-  names: named(name), named(description), named(arguments), named(init), named(getMessages)
+  names: named(name), named(title), named(description), named(arguments), named(init),
+  named(getMessages)
 )
 @attached(extension, conformances: MCPPrompt, Sendable)
-public macro MCPPrompt(_ description: String, name: String? = nil) =
+public macro MCPPrompt(_ description: String, name: String? = nil, title: String? = nil) =
   #externalMacro(module: "FastMCPMacros", type: "MCPPromptMacro")
 
 @attached(peer)
@@ -17,12 +18,13 @@ public macro PromptArgument(
 
 @attached(
   member,
-  names: named(uri), named(name), named(description), named(mimeType), named(init)
+  names: named(uri), named(name), named(title), named(description), named(mimeType), named(init)
 )
 @attached(extension, conformances: MCPResource, Sendable)
 public macro MCPResource(
   _ uri: String,
   name: String? = nil,
+  title: String? = nil,
   description: String? = nil,
   mimeType: MCPResourceMimeType? = nil
 ) = #externalMacro(module: "FastMCPMacros", type: "MCPResourceMacro")

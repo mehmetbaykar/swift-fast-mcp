@@ -84,7 +84,7 @@ prefer the builder APIs.
 ```swift
 import FastMCP
 
-@Tool("Get weather for a location")
+@Tool("Get weather for a location", title: "Weather", readOnly: true)
 struct WeatherTool {
     @Parameter("City or coordinates")
     var location: String = ""
@@ -308,8 +308,13 @@ FastMCP does not handle TLS. Deploy behind a reverse proxy (nginx, Caddy) for HT
 
 AI-callable functions with JSON Schema generated from either flat `@Parameter`
 stored properties plus `execute()`, or a nested `@Generable` `Arguments` struct
-plus `execute(_:)`. The tool's name is derived from the struct name
-(`MathTool` → `math`) and its return type from the body of `execute`:
+plus `execute(_:)`. The tool's name is derived in snake_case from the struct
+name after dropping a trailing `Tool` (`MathTool` → `math`,
+`StructuredSearchTool` → `structured_search`). A `String` result is sent as
+plain text; a `@Generable` object result is sent as `structuredContent` plus a
+JSON text block and publishes an `outputSchema`. Optional `title:` and hint
+arguments (`readOnly:`, `destructive:`, `idempotent:`, `openWorld:`) appear on
+`tools/list`. Return type comes from the body of `execute`:
 
 ```swift
 @Generable
@@ -317,7 +322,7 @@ enum Operation: String, CaseIterable {
     case add, subtract, multiply, divide
 }
 
-@Tool("Perform math operations")
+@Tool("Perform math operations", title: "Math", readOnly: true)
 struct MathTool {
     @Generable
     struct Arguments {

@@ -3,6 +3,7 @@ import FastMCP
 @MCPResource(
   "config://app/settings",
   name: "App Settings",
+  title: "App Settings",
   description: "Application configuration and feature flags",
   mimeType: .applicationJSON
 )

@@ -28,6 +28,9 @@ public struct MCPResourceMacro: MemberMacro, ExtensionMacro {
     if let name = extractLabeledString(from: node, label: "name") {
       members.append("public var name: String? { \(raw: literalString(name)) }")
     }
+    if let title = extractLabeledString(from: node, label: "title") {
+      members.append("public var title: String? { \(raw: literalString(title)) }")
+    }
     if let description = extractLabeledString(from: node, label: "description") {
       members.append(
         "public var description: String? { \(raw: literalString(description)) }"

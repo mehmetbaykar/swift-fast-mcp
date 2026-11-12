@@ -7,6 +7,7 @@ public protocol MCPResource: Sendable {
 
   var uri: String { get }
   var name: String? { get }
+  var title: String? { get }
   var description: String? { get }
   var mimeType: String? { get }
 
@@ -16,6 +17,7 @@ public protocol MCPResource: Sendable {
 
 extension MCPResource {
   public var name: String? { nil }
+  public var title: String? { nil }
   public var description: String? { nil }
   public var mimeType: String? { nil }
 }

@@ -38,8 +38,8 @@ When invoked:
 - Generated `Package.swift` files depend on `swift-fast-mcp` from `2.7.0`; FastMCP itself declares swift-ai-hub from `0.8.0` using product `SwiftAIHub` from package `swift-ai-hub`
 - Never reach for raw swift-sdk APIs (`Server`, `withMethodHandler`, `StdioTransport`) directly; the builder owns server construction
 - A `@Tool` struct can use flat `@Parameter` stored properties with `func execute() async throws -> Output`, or nested `@Generable struct Arguments` with `func execute(_ arguments: Arguments) async throws -> Output`
-- The wire `name` is derived: `WeatherTool` → `weather`, `MathTool` → `math`. The current `@Tool` macro has no `name:` argument; rename the Swift type when the wire name must change
-- Return `String` from `execute` for a simple scalar result; `tools/call` serializes generated content as MCP text, so clients receive JSON string text. Return any custom `@Generable` type for structured JSON content. There is no extra wrapper type
+- The wire `name` is snake_case from the type name after dropping a trailing `Tool`: `WeatherTool` → `weather`, `StructuredSearchTool` → `structured_search`. The current `@Tool` macro has no `name:` argument; rename the Swift type when the wire name must change. Optional `title:` and hint arguments publish MCP metadata; `tools/list` keeps registration order
+- Return `String` from `execute` for plain text. Return a `@Generable` object type for `structuredContent` plus a JSON text block and an `outputSchema`. Arrays, numbers, and other non-object results stay JSON text with no `outputSchema`. There is no extra wrapper type
 - Use plain `throws` on `execute`. Errors flow through the bridge as `HubBridgeError.invalidArguments(...)` and surface as `isError: true`
 - `@Generable` enums must declare a `String` raw value
 - `@MCPResource` requires the user to supply `var content: Content` with `@ResourceContentBuilder`; the macro does not synthesise `content`
@@ -89,7 +89,12 @@ public enum TemperatureUnit: String, CaseIterable {
   case celsius, fahrenheit
 }
 
-@Tool("Get current weather for a location")
+@Tool(
+  "Get current weather for a location",
+  title: "Weather",
+  readOnly: true,
+  openWorld: false
+)
 public struct WeatherTool {
   @Generable
   public struct Arguments {
@@ -126,7 +131,12 @@ public struct SearchResult {
   public var resultCount: Int
 }
 
-@Tool("Return search results with typed structured output")
+@Tool(
+  "Return search results with typed structured output",
+  title: "Structured Search",
+  readOnly: true,
+  openWorld: false
+)
 public struct StructuredSearchTool {
   public struct QueryError: Error, CustomStringConvertible {
     public let description: String

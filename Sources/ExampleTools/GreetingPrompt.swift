@@ -5,7 +5,7 @@ public enum GreetingTone: String, CaseIterable {
   case casual, formal, professional
 }
 
-@MCPPrompt("A friendly greeting conversation starter")
+@MCPPrompt("A friendly greeting conversation starter", title: "Friendly Greeting")
 public struct GreetingPrompt {
   @PromptArgument("Who to greet", name: "name")
   public var who: String

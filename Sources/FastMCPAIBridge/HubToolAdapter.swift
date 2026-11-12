@@ -51,9 +51,12 @@ public actor HubToolAdapter {
   }
 
   private var tools: [String: Entry] = [:]
+  /// Registration order for `listTools` / `names` / `snapshot` / proxied queries.
+  private var order: [String] = []
 
   public init() {
     self.tools = [:]
+    self.order = []
   }
 
   public init(tools: [any SwiftAIHub.Tool]) throws {
@@ -62,6 +65,7 @@ public actor HubToolAdapter {
         throw HubBridgeError.duplicateTool(name: tool.name)
       }
       self.tools[tool.name] = .native(tool)
+      self.order.append(tool.name)
     }
   }
 
@@ -70,6 +74,7 @@ public actor HubToolAdapter {
       throw HubBridgeError.duplicateTool(name: tool.name)
     }
     tools[tool.name] = .native(tool)
+    order.append(tool.name)
   }
 
   public func register(_ tool: ProxiedMCPTool) throws {
@@ -77,28 +82,50 @@ public actor HubToolAdapter {
       throw HubBridgeError.duplicateTool(name: tool.name)
     }
     tools[tool.name] = .proxied(tool)
+    order.append(tool.name)
   }
 
   public func register(_ newTools: [ProxiedMCPTool]) throws {
-    var next = tools
-    try Self.insert(newTools, into: &next)
-    tools = next
+    var nextTools = tools
+    var nextOrder = order
+    try Self.insert(newTools, into: &nextTools, order: &nextOrder)
+    tools = nextTools
+    order = nextOrder
   }
 
   public func replaceProxiedTools(
     serverName: String,
     with newTools: [ProxiedMCPTool]
   ) throws {
-    var next = tools.filter { _, entry in
+    var nextTools = tools
+    var nextOrder = order
+
+    let insertAt =
+      nextOrder.firstIndex { name in
+        guard case .proxied(let tool) = nextTools[name] else { return false }
+        return tool.serverName == serverName
+      } ?? nextOrder.endIndex
+
+    nextOrder.removeAll { name in
+      guard case .proxied(let tool) = nextTools[name] else { return false }
+      return tool.serverName == serverName
+    }
+    nextTools = nextTools.filter { _, entry in
       guard case .proxied(let tool) = entry else { return true }
       return tool.serverName != serverName
     }
-    try Self.insert(newTools, into: &next)
-    tools = next
+
+    try Self.insert(newTools, into: &nextTools, order: &nextOrder, at: insertAt)
+    tools = nextTools
+    order = nextOrder
   }
 
   public func unregisterProxiedTools(serverName: String) -> Int {
     let before = tools.count
+    order.removeAll { name in
+      guard case .proxied(let tool) = tools[name] else { return false }
+      return tool.serverName == serverName
+    }
     tools = tools.filter { _, entry in
       guard case .proxied(let tool) = entry else { return true }
       return tool.serverName != serverName
@@ -107,8 +134,8 @@ public actor HubToolAdapter {
   }
 
   public func proxiedTools(serverName: String) -> [ProxiedMCPTool] {
-    tools.values.compactMap { entry in
-      guard case .proxied(let tool) = entry, tool.serverName == serverName else {
+    order.compactMap { name in
+      guard case .proxied(let tool) = tools[name], tool.serverName == serverName else {
         return nil
       }
       return tool
@@ -117,6 +144,10 @@ public actor HubToolAdapter {
 
   public func unregisterAllProxiedTools() -> Int {
     let before = tools.count
+    order.removeAll { name in
+      if case .proxied = tools[name] { return true }
+      return false
+    }
     tools = tools.filter { _, entry in
       guard case .proxied = entry else { return true }
       return false
@@ -126,21 +157,23 @@ public actor HubToolAdapter {
 
   public func unregister(name: String) {
     tools.removeValue(forKey: name)
+    order.removeAll { $0 == name }
   }
 
   public func names() -> [String] {
-    Array(tools.keys)
+    order
   }
 
   public func snapshot() -> [any SwiftAIHub.Tool] {
-    tools.values.compactMap { entry in
-      guard case .native(let tool) = entry else { return nil }
+    order.compactMap { name in
+      guard case .native(let tool) = tools[name] else { return nil }
       return tool
     }
   }
 
   public func listTools() -> [MCP.Tool] {
-    tools.values.map { entry in
+    order.compactMap { name in
+      guard let entry = tools[name] else { return nil }
       switch entry {
       case .native(let tool):
         return HubToolMapper.mapTool(tool)
@@ -156,9 +189,9 @@ public actor HubToolAdapter {
   ///
   /// - Note: This path collapses image segments to a sentinel string and
   ///   stringifies structured output. Prefer ``makeContent(name:arguments:)``
-  ///   when bridging directly to MCP `Tool.Content`, which preserves typed
-  ///   image blocks and only falls back to JSON text for structured output
-  ///   (the MCP SDK does not yet expose structured content on CallTool).
+  ///   or ``callTool(name:arguments:meta:)`` when bridging directly to MCP
+  ///   `Tool.Content`, which preserves typed image blocks and also surfaces
+  ///   object structured output via `CallTool.Result.structuredContent`.
   public func execute(name: String, arguments: Value) async throws -> GeneratedContent {
     guard let entry = tools[name] else {
       throw HubBridgeError.toolNotFound(name)
@@ -181,10 +214,9 @@ public actor HubToolAdapter {
   /// - `.image(.data)` → `.image(data: base64, mimeType:)`
   /// - `.image(.url)` → `.resourceLink(uri:)` (MCP image content requires
   ///   inline data + mimeType; URL-only images are surfaced as a link)
-  /// - `.structure` → `.text(jsonString)` — the current MCP SDK's
-  ///   `Tool.Content` enum is sealed and does not expose a structured
-  ///   content case on CallTool responses; we serialize as JSON text.
-  ///   TODO: switch to a structured content case once the MCP SDK adds one.
+  /// - `.structure` → `.text(jsonString)` in `content` for compatibility;
+  ///   object payloads are also returned as `CallTool.Result.structuredContent`
+  ///   via ``callTool(name:arguments:meta:)``.
   public func makeContent(name: String, arguments: Value) async throws -> [MCP.Tool.Content] {
     let result = try await callTool(name: name, arguments: arguments, meta: nil)
     return result.content
@@ -200,8 +232,10 @@ public actor HubToolAdapter {
 
     switch entry {
     case .native(let tool):
-      let content = try await makeNativeContent(tool: tool, arguments: arguments)
-      return CallTool.Result(content: content, isError: false)
+      let (content, structuredContent) = try await makeNativeContent(
+        tool: tool, arguments: arguments)
+      return CallTool.Result(
+        content: content, structuredContent: structuredContent, isError: false)
     case .proxied(let tool):
       let objectArguments: [String: Value]?
       if case .object(let fields) = arguments {
@@ -213,9 +247,9 @@ public actor HubToolAdapter {
     }
   }
 
-  private func makeNativeContent(tool: any SwiftAIHub.Tool, arguments: Value) async throws -> [MCP
-    .Tool.Content]
-  {
+  private func makeNativeContent(tool: any SwiftAIHub.Tool, arguments: Value) async throws -> (
+    [MCP.Tool.Content], Value?
+  ) {
     let hubArgs = HubValueMapper.generatedContent(from: arguments)
     let segments: [Transcript.Segment]
     do {
@@ -223,7 +257,21 @@ public actor HubToolAdapter {
     } catch {
       throw HubBridgeError.invalidArguments(tool: tool.name, reason: "\(error)")
     }
-    return segments.map(Self.toolContent(from:))
+    let content = segments.map(Self.toolContent(from:))
+    return (content, Self.structuredContent(from: segments))
+  }
+
+  /// Returns `structuredContent` when the segments contain exactly one
+  /// `.structure` segment whose payload is a JSON object.
+  static func structuredContent(from segments: [Transcript.Segment]) -> Value? {
+    let structures = segments.compactMap { segment -> GeneratedContent? in
+      guard case .structure(let structure) = segment else { return nil }
+      return structure.content
+    }
+    guard structures.count == 1, let content = structures.first else { return nil }
+    let value = HubValueMapper.value(from: content)
+    guard case .object = value else { return nil }
+    return value
   }
 
   private func dispatch(tool: any SwiftAIHub.Tool, arguments: GeneratedContent) async throws
@@ -267,8 +315,9 @@ public actor HubToolAdapter {
   }
 
   /// Map a single hub transcript segment onto an MCP content block, preserving
-  /// typed image payloads and falling back to JSON text for structured output
-  /// (see ``makeContent(name:arguments:)`` for the SDK constraint).
+  /// typed image payloads. Structured segments are serialized as JSON text in
+  /// `content`; object payloads are also exposed as `structuredContent` by
+  /// ``callTool(name:arguments:meta:)``.
   static func toolContent(from segment: Transcript.Segment) -> MCP.Tool.Content {
     switch segment {
     case .text(let text):
@@ -286,21 +335,33 @@ public actor HubToolAdapter {
         return .resourceLink(uri: url.absoluteString, name: url.lastPathComponent)
       }
     case .structure(let structure):
-      // MCP SDK's Tool.Content has no structured-content case on CallTool
-      // responses yet; serialize to JSON text so the client still receives
-      // the full payload instead of a sentinel.
+      // Plain strings must not go out as quoted JSON (`"line\n…"`). Some
+      // structure payloads still carry a string kind (for example a
+      // string-backed enum or dynamic `GeneratedContent`); emit the raw
+      // string as text instead.
+      if case .string(let text) = structure.content.kind {
+        return .text(text: text, annotations: nil, _meta: nil)
+      }
+      // Keep serialized JSON in `content` for older clients (MCP SHOULD).
+      // Object payloads are also returned via `CallTool.Result.structuredContent`.
       return .text(text: structure.content.jsonString, annotations: nil, _meta: nil)
     }
   }
 
-  private static func insert(_ newTools: [ProxiedMCPTool], into tools: inout [String: Entry])
-    throws
-  {
+  private static func insert(
+    _ newTools: [ProxiedMCPTool],
+    into tools: inout [String: Entry],
+    order: inout [String],
+    at index: Int? = nil
+  ) throws {
+    var insertIndex = index ?? order.endIndex
     for tool in newTools {
       if tools[tool.name] != nil {
         throw HubBridgeError.duplicateTool(name: tool.name)
       }
       tools[tool.name] = .proxied(tool)
+      order.insert(tool.name, at: insertIndex)
+      insertIndex += 1
     }
   }
 }
