@@ -5,7 +5,12 @@ public enum MathOperation: String, CaseIterable {
   case add, subtract, multiply, divide
 }
 
-@Tool("Perform basic math operations")
+@Tool(
+  "Perform basic math operations",
+  title: "Math",
+  readOnly: true,
+  openWorld: false
+)
 public struct MathTool {
   public struct CalculationError: Error, CustomStringConvertible {
     public let description: String

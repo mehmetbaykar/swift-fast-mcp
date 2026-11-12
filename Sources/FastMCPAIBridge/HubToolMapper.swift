@@ -7,10 +7,18 @@ import SwiftAIHub
 
 public enum HubToolMapper {
   public static func mapTool(_ tool: any SwiftAIHub.Tool) -> MCP.Tool {
+    let annotations = tool.annotations
     return MCP.Tool(
       name: tool.name,
+      title: annotations.title,
       description: tool.description,
       inputSchema: inputSchema(for: tool),
+      annotations: MCP.Tool.Annotations(
+        readOnlyHint: annotations.readOnly,
+        destructiveHint: annotations.destructive,
+        idempotentHint: annotations.idempotent,
+        openWorldHint: annotations.openWorld
+      ),
       outputSchema: outputSchema(for: tool)
     )
   }
