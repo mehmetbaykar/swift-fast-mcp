@@ -35,7 +35,7 @@ When invoked:
 ## Critical Rules
 
 - Always use `import FastMCP` — it re-exports `SwiftAIHub`, `Logging`, `UnixSignals`, and `FastMCPAIBridge` (`Sources/swift-fast-mcp/Exports.swift`). Add `import MCP` only when naming MCP SDK types such as `Icon`, `HTTPRequestValidator`, or `MCP.Transport`
-- Generated `Package.swift` files depend on `swift-fast-mcp` from `2.7.0`; FastMCP itself declares swift-ai-hub from `0.8.0` using product `SwiftAIHub` from package `swift-ai-hub`
+- Generated `Package.swift` files depend on `swift-fast-mcp` from `2.7.0`; FastMCP itself declares swift-ai-hub from `0.9.0` using product `SwiftAIHub` from package `swift-ai-hub`
 - Never reach for raw swift-sdk APIs (`Server`, `withMethodHandler`, `StdioTransport`) directly; the builder owns server construction
 - A `@Tool` struct can use flat `@Parameter` stored properties with `func execute() async throws -> Output`, or nested `@Generable struct Arguments` with `func execute(_ arguments: Arguments) async throws -> Output`
 - The wire `name` is snake_case from the type name after dropping a trailing `Tool`: `WeatherTool` → `weather`, `StructuredSearchTool` → `structured_search`. The current `@Tool` macro has no `name:` argument; rename the Swift type when the wire name must change. Optional `title:` and hint arguments publish MCP metadata; `tools/list` keeps registration order

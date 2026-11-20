@@ -18,7 +18,7 @@ let package = Package(
     .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.13.0"),
     .package(url: "https://github.com/apple/swift-nio.git", from: "2.105.0"),
     .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.2"),
-    .package(url: "https://github.com/mehmetbaykar/swift-ai-hub", branch: "feature/tool-annotations-text-output"),
+    .package(url: "https://github.com/mehmetbaykar/swift-ai-hub", from: "0.9.0"),
   ],
   targets: [
     .macro(
