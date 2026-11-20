@@ -70,7 +70,7 @@ let package = Package(
 Notes:
 
 - A single dependency on `swift-fast-mcp` is enough for a generated server. FastMCP transitively brings in the official MCP SDK, swift-ai-hub, swift-service-lifecycle, and swift-nio.
-- The FastMCP package declares swift-ai-hub with `.package(url: "https://github.com/mehmetbaykar/swift-ai-hub", from: "0.9.0")` and depends on product `SwiftAIHub` from package `swift-ai-hub` in `Package.swift`.
+- The FastMCP package declares swift-ai-hub with `.package(url: "https://github.com/mehmetbaykar/swift-ai-hub", from: "0.10.0")` and depends on product `SwiftAIHub` from package `swift-ai-hub` in `Package.swift`.
 - `import FastMCP` re-exports `FastMCPAIBridge`, `SwiftAIHub`, `Logging`, and `UnixSignals` (`Sources/swift-fast-mcp/Exports.swift`), so user files only need `import FastMCP`.
 - Swift 6.2+, macOS 14+ to match swift-fast-mcp's own platform floor.
 
@@ -189,9 +189,9 @@ public struct WeatherTool {
 }
 ```
 
-The `@Tool` macro derives the wire `name` by stripping a trailing `Tool` from the type name and snake_casing the remainder (`WeatherTool` → `weather`, `StructuredSearchTool` → `structured_search`). Description is the macro's string argument. Optional `title:` and hint arguments (`readOnly:`, `destructive:`, `idempotent:`, `openWorld:`) publish MCP display metadata. Simple tools can use flat `@Parameter` stored properties and a no-argument `execute()`. Tools with reusable argument payloads can instead declare a nested `@Generable struct Arguments` and `execute(_ arguments:)`. Mark each model-visible field with `@Parameter("…")` (or `@Guide(description:)`) for the description that reaches the wire.
+The `@Tool` macro derives the wire `name` by stripping a trailing `Tool` from the type name and snake_casing the remainder (`WeatherTool` → `weather`, `StructuredSearchTool` → `structured_search`). Optional `name:` overrides that derivation with a string literal of 1 to 64 characters from `A-Z`, `a-z`, `0-9`, `_`, or `-` (other values are a compile-time error); omit it or pass `nil` to keep the derived name. Use `name:` when you need a stable public tool name without renaming the Swift type. Description is the macro's string argument. Optional `title:` and hint arguments (`readOnly:`, `destructive:`, `idempotent:`, `openWorld:`) publish MCP display metadata. Simple tools can use flat `@Parameter` stored properties and a no-argument `execute()`. Tools with reusable argument payloads can instead declare a nested `@Generable struct Arguments` and `execute(_ arguments:)`. Mark each model-visible field with `@Parameter("…")` (or `@Guide(description:)`) for the description that reaches the wire.
 
-There is no current `@Tool` `name:` parameter. Rename the Swift type when the wire name must change. `tools/list` returns tools in registration order.
+`tools/list` returns tools in registration order.
 
 `execute` returns whatever you want the model to see. A `String` result is sent as plain text. A `@Generable` object result is sent as `structuredContent` plus a JSON text block, and `tools/list` publishes an `outputSchema`. Arrays, numbers, and other non-object results stay JSON text with no `outputSchema`. See `docs/Tools.md` for the full wire shape and `../swift-ai-hub/docs/Macros.md` for the macro contract.
 

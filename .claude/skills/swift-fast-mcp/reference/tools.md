@@ -58,16 +58,18 @@ Derived values:
 
 | From | Rule |
 |---|---|
-| Wire `name` | Type name with a trailing `Tool` stripped, then snake_cased. `WeatherTool` → `weather`, `StructuredSearchTool` → `structured_search`. |
+| Wire `name` | Derived from the type name with a trailing `Tool` stripped, then snake_cased (`WeatherTool` → `weather`, `StructuredSearchTool` → `structured_search`), unless overridden by optional `name:`. |
 | Wire `description` | The macro's string argument. |
 | Wire `title` / hints | Optional macro arguments; `nil` omits the field on the wire. |
 | `inputSchema` | Generated from flat `@Parameter` properties or nested `Arguments` by `@Generable`. |
 | `outputSchema` | Present only when `Output` is a `@Generable` object type. |
 | `Output` | Inferred from `execute`. |
 
-The current `@Tool` macro has no `name:` argument and emits `name` from
-`Self.schema.name`. Rename the Swift type when the wire name needs to change.
-`tools/list` returns tools in registration order.
+Optional `name:` overrides the derived wire name with a string literal of 1 to
+64 characters from `A-Z`, `a-z`, `0-9`, `_`, or `-` (other values are a
+compile-time error). Omit it or pass `nil` to keep the derived name from
+`Self.schema.name`. Use `name:` to keep an existing public tool name without
+renaming the Swift type. `tools/list` returns tools in registration order.
 
 Plain stored properties on the tool struct that are neither flat `@Parameter`
 fields nor part of the nested `Arguments` type are treated as init-injected

@@ -310,10 +310,14 @@ AI-callable functions with JSON Schema generated from either flat `@Parameter`
 stored properties plus `execute()`, or a nested `@Generable` `Arguments` struct
 plus `execute(_:)`. The tool's name is derived in snake_case from the struct
 name after dropping a trailing `Tool` (`MathTool` → `math`,
-`StructuredSearchTool` → `structured_search`). A `String` result is sent as
-plain text; a `@Generable` object result is sent as `structuredContent` plus a
-JSON text block and publishes an `outputSchema`. Optional `title:` and hint
-arguments (`readOnly:`, `destructive:`, `idempotent:`, `openWorld:`) appear on
+`StructuredSearchTool` → `structured_search`). Optional `name:` overrides that
+with a string literal of 1 to 64 characters from `A-Z`, `a-z`, `0-9`, `_`, or
+`-` (other values are a compile-time error); omit it or pass `nil` to keep the
+derived name — use `name:` to keep an existing public tool name without
+renaming the Swift type. A `String` result is sent as plain text; a
+`@Generable` object result is sent as `structuredContent` plus a JSON text
+block and publishes an `outputSchema`. Optional `title:` and hint arguments
+(`readOnly:`, `destructive:`, `idempotent:`, `openWorld:`) appear on
 `tools/list`. Return type comes from the body of `execute`:
 
 ```swift
