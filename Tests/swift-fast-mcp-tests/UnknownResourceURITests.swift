@@ -13,7 +13,7 @@ private struct KnownResource {
 @Suite("Unknown resource URI error")
 struct UnknownResourceURITests {
 
-  @Test func `resources read unknown URI is invalid params`() async throws {
+  @Test func `resources read unknown URI is resource not found`() async throws {
     let (clientTransport, serverTransport) = await InMemoryTransport.createConnectedPair()
 
     let server = Server(
@@ -31,8 +31,13 @@ struct UnknownResourceURITests {
       _ = try await client.readResource(uri: "test://missing")
       Issue.record("expected readResource to throw for unknown URI")
     } catch let error as MCPError {
-      #expect(error == .invalidParams("Unknown resource URI: test://missing"))
-      #expect(error.code == -32602)
+      #expect(error.code == -32002)
+      #expect(
+        error == .serverError(
+          code: -32002,
+          message: "Server error: Resource not found: test://missing"
+        )
+      )
     } catch {
       Issue.record("expected MCPError, got \(error)")
     }
