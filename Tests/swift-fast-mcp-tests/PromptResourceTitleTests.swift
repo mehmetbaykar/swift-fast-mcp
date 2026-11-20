@@ -40,10 +40,10 @@ private struct UntitledResource {
   }
 }
 
-/// Hand-written MCPPrompt conformance that supplies an explicit title.
+/// Hand-written MCPPrompt conformance that supplies an explicit display title.
 private struct HandWrittenTitledPrompt: MCPPrompt {
   var name: String { "hand_prompt" }
-  var title: String? { "Hand Title" }
+  var displayTitle: String? { "Hand Title" }
   var description: String? { "hand-written" }
   var arguments: [PromptArgumentSpec] { [] }
 
@@ -52,11 +52,11 @@ private struct HandWrittenTitledPrompt: MCPPrompt {
   }
 }
 
-/// Hand-written MCPResource conformance that supplies an explicit title.
+/// Hand-written MCPResource conformance that supplies an explicit display title.
 private struct HandWrittenTitledResource: MCPResource {
   var uri: String { "test://hand" }
   var name: String? { "Hand" }
-  var title: String? { "Hand Resource Title" }
+  var displayTitle: String? { "Hand Resource Title" }
   var description: String? { "hand-written resource" }
   var mimeType: String? { "text/plain" }
 
@@ -74,6 +74,39 @@ private struct TitleArgumentPrompt {
 
   func getMessages() async throws -> Messages {
     [.user("Title is \(title)")]
+  }
+}
+
+/// Optional `title` argument with a default — must not become the display title.
+@MCPPrompt("Document titled prompt")
+private struct OptionalTitleArgumentPrompt {
+  @PromptArgument("Document title")
+  var title: String? = "Draft"
+
+  func getMessages() async throws -> Messages {
+    [.user("Title is \(title ?? "none")")]
+  }
+}
+
+/// Macro `title:` coexists with a stored property named `title`.
+@MCPPrompt("Display and argument title", title: "Display")
+private struct DisplayAndArgumentTitlePrompt {
+  @PromptArgument("Document title")
+  var title: String
+
+  func getMessages() async throws -> Messages {
+    [.user("Title is \(title)")]
+  }
+}
+
+/// Stored `title` on a resource must not become the resource display title.
+@MCPResource("test://stored-title", name: "StoredTitle")
+private struct StoredTitleResource {
+  var title: String? = "x"
+
+  @ResourceContentBuilder
+  var content: Content {
+    "stored"
   }
 }
 
@@ -100,11 +133,11 @@ struct PromptResourceTitleTests {
     #expect(UntitledResource().toResource().title == nil)
   }
 
-  @Test func `hand written prompt title flows through toPrompt`() {
+  @Test func `hand written prompt displayTitle flows through toPrompt`() {
     #expect(HandWrittenTitledPrompt().toPrompt().title == "Hand Title")
   }
 
-  @Test func `hand written resource title flows through toResource`() {
+  @Test func `hand written resource displayTitle flows through toResource`() {
     #expect(HandWrittenTitledResource().toResource().title == "Hand Resource Title")
   }
 
@@ -118,6 +151,22 @@ struct PromptResourceTitleTests {
       return
     }
     #expect(body == "Title is War and Peace")
+  }
+
+  @Test func `optional title argument default does not become display title`() {
+    let prompt = OptionalTitleArgumentPrompt()
+    #expect(prompt.toPrompt().title == nil)
+    #expect(prompt.arguments.contains { $0.name == "title" })
+  }
+
+  @Test func `macro title coexists with stored title argument`() {
+    let prompt = DisplayAndArgumentTitlePrompt()
+    #expect(prompt.toPrompt().title == "Display")
+    #expect(prompt.arguments.contains { $0.name == "title" })
+  }
+
+  @Test func `resource stored title does not become display title`() {
+    #expect(StoredTitleResource().toResource().title == nil)
   }
 
   @Test func `prompts list and resources list include title`() async throws {

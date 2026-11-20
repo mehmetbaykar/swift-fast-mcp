@@ -7,25 +7,24 @@
   @Suite("MCPPrompt title collision diagnostic")
   struct MCPPromptTitleCollisionMacroTests {
 
-    @Test func `title argument colliding with stored property emits diagnostic`() {
+    @Test func `displayTitle colliding with stored property emits diagnostic`() {
       assertMacroExpansion(
         """
         @MCPPrompt("Colliding prompt", title: "Display Name")
         struct CollidingPrompt {
-          @PromptArgument("Document title")
-          var title: String
+          var displayTitle: String? = "local"
 
           func getMessages() async throws -> Messages {
-            [.user(title)]
+            [.user("x")]
           }
         }
         """,
         expandedSource: """
           struct CollidingPrompt {
-            var title: String
+            var displayTitle: String? = "local"
 
             func getMessages() async throws -> Messages {
-              [.user(title)]
+              [.user("x")]
             }
           }
 

@@ -2,7 +2,7 @@
 
 @attached(
   member,
-  names: named(name), named(title), named(description), named(arguments), named(init),
+  names: named(name), named(displayTitle), named(description), named(arguments), named(init),
   named(getMessages)
 )
 @attached(extension, conformances: MCPPrompt, Sendable)
@@ -18,7 +18,7 @@ public macro PromptArgument(
 
 @attached(
   member,
-  names: named(uri), named(name), named(title), named(description), named(mimeType), named(init)
+  names: named(uri), named(name), named(displayTitle), named(description), named(mimeType), named(init)
 )
 @attached(extension, conformances: MCPResource, Sendable)
 public macro MCPResource(

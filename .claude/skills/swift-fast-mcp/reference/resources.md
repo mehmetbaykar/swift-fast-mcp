@@ -23,7 +23,7 @@ Applied to a struct, the macro emits:
 
 - `public var uri: String`
 - `public var name: String?` only when `name:` is present
-- `public var title: String?` only when `title:` is present
+- `public var displayTitle: String?` only when `title:` is present
 - `public var description: String?` only when `description:` is present
 - `public var mimeType: String?` only when `mimeType:` resolves
 - `public init()` only when the struct has no user-declared init

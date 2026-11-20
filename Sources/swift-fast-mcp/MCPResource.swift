@@ -7,7 +7,8 @@ public protocol MCPResource: Sendable {
 
   var uri: String { get }
   var name: String? { get }
-  var title: String? { get }
+  /// Human-readable display name for UIs. Distinct from stored properties named `title`.
+  var displayTitle: String? { get }
   var description: String? { get }
   var mimeType: String? { get }
 
@@ -17,7 +18,7 @@ public protocol MCPResource: Sendable {
 
 extension MCPResource {
   public var name: String? { nil }
-  public var title: String? { nil }
+  public var displayTitle: String? { nil }
   public var description: String? { nil }
   public var mimeType: String? { nil }
 }

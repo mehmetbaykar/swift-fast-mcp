@@ -17,7 +17,7 @@ itself (`Sources/swift-fast-mcp/FastMCPMacros.swift`,
 `@MCPPrompt` applies only to structs. It synthesises:
 
 - `public var name: String`
-- `public var title: String?` only when `title:` is present
+- `public var displayTitle: String?` only when `title:` is present
 - `public var description: String?`
 - `public var arguments: [PromptArgumentSpec]`
 - `public init()` (only when the struct has no user-declared init)

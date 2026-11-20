@@ -28,7 +28,7 @@ public struct MCPPromptMacro: MemberMacro, ExtensionMacro {
     let promptTitle = extractTitle(from: node)
     let arguments = extractArguments(from: declaration)
 
-    if promptTitle != nil, hasStoredProperty(named: "title", in: declaration) {
+    if promptTitle != nil, hasStoredProperty(named: "displayTitle", in: declaration) {
       throw PromptMacroError.titleCollidesWithStoredProperty
     }
 
@@ -36,7 +36,7 @@ public struct MCPPromptMacro: MemberMacro, ExtensionMacro {
     members.append("public var name: String { \(raw: literalString(promptName)) }")
     if let promptTitle {
       members.append(
-        "public var title: String? { \(raw: literalString(promptTitle)) }"
+        "public var displayTitle: String? { \(raw: literalString(promptTitle)) }"
       )
     }
     members.append(
@@ -408,7 +408,7 @@ enum PromptMacroError: Error, CustomStringConvertible {
     case .onlyApplicableToStruct: return "@MCPPrompt can only be applied to structs"
     case .titleCollidesWithStoredProperty:
       return
-        "Cannot use title: on @MCPPrompt when the struct already has a stored property named \"title\". Rename the property and keep the wire name with @PromptArgument(..., name: \"title\")."
+        "Cannot use title: on @MCPPrompt when the struct already has a stored property named \"displayTitle\". Rename the property named displayTitle."
     }
   }
 }
