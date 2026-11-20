@@ -20,13 +20,13 @@ concurrency:
 jobs:
   build-and-test:
     name: swift build + swift test (no traits)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     container:
-      image: swift:6.2-jammy
+      image: swift:6.4-jammy
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Cache SPM
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/org.swift.swiftpm
