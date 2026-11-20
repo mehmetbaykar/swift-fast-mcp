@@ -161,4 +161,177 @@ struct HubToolAdapterStructuredContentTests {
     #expect(structured["summary"] == .string("ok"))
     #expect(structured["resultCount"] == .int(2) || structured["resultCount"] == .double(2))
   }
+
+  @Test
+  func `nil optional members are omitted from structuredContent at every object depth`() async throws {
+    let adapter = try HubToolAdapter(tools: [OptionalFieldsTool()])
+    let result = try await adapter.callTool(
+      name: "optionalFields",
+      arguments: .object(["includeOptionals": .bool(false)]),
+      meta: nil
+    )
+
+    #expect(result.isError != true)
+    #expect(result.content.count == 1)
+    guard case .text = result.content.first else {
+      Issue.record("Expected one JSON text block, got \(String(describing: result.content.first))")
+      return
+    }
+
+    guard case .object(let structured) = result.structuredContent else {
+      Issue.record(
+        "Expected object structuredContent, got \(String(describing: result.structuredContent))")
+      return
+    }
+
+    #expect(structured["required"] == .string("present"))
+    #expect(structured["note"] == nil)
+    #expect(structured["maybeInner"] == nil)
+    #expect(Set(structured.keys) == Set(["required", "nested", "items"]))
+
+    guard case .object(let nested) = structured["nested"] else {
+      Issue.record("Expected nested object, got \(String(describing: structured["nested"]))")
+      return
+    }
+    #expect(nested["title"] == .string("nested-title"))
+    #expect(nested["hint"] == nil)
+    #expect(Set(nested.keys) == Set(["title"]))
+
+    guard case .array(let items) = structured["items"], items.count == 1 else {
+      Issue.record("Expected one-item array, got \(String(describing: structured["items"]))")
+      return
+    }
+    guard case .object(let item) = items[0] else {
+      Issue.record("Expected object array element, got \(String(describing: items[0]))")
+      return
+    }
+    #expect(item["title"] == .string("item-title"))
+    #expect(item["hint"] == nil)
+    #expect(Set(item.keys) == Set(["title"]))
+
+    #expect(nullObjectMemberPaths(in: .object(structured)).isEmpty)
+  }
+
+  @Test
+  func `non-nil optional members are present in structuredContent`() async throws {
+    let adapter = try HubToolAdapter(tools: [OptionalFieldsTool()])
+    let result = try await adapter.callTool(
+      name: "optionalFields",
+      arguments: .object(["includeOptionals": .bool(true)]),
+      meta: nil
+    )
+
+    #expect(result.isError != true)
+    #expect(result.content.count == 1)
+    guard case .text = result.content.first else {
+      Issue.record("Expected one JSON text block, got \(String(describing: result.content.first))")
+      return
+    }
+
+    guard case .object(let structured) = result.structuredContent else {
+      Issue.record(
+        "Expected object structuredContent, got \(String(describing: result.structuredContent))")
+      return
+    }
+
+    #expect(structured["required"] == .string("present"))
+    #expect(structured["note"] == .string("a note"))
+    #expect(Set(structured.keys) == Set(["required", "note", "maybeInner", "nested", "items"]))
+
+    guard case .object(let maybeInner) = structured["maybeInner"] else {
+      Issue.record("Expected maybeInner object, got \(String(describing: structured["maybeInner"]))")
+      return
+    }
+    #expect(maybeInner["label"] == .string("inner-label"))
+
+    guard case .object(let nested) = structured["nested"] else {
+      Issue.record("Expected nested object, got \(String(describing: structured["nested"]))")
+      return
+    }
+    #expect(nested["title"] == .string("nested-title"))
+    #expect(nested["hint"] == .string("nested-hint"))
+
+    guard case .array(let items) = structured["items"], items.count == 1,
+      case .object(let item) = items[0]
+    else {
+      Issue.record("Expected one object item, got \(String(describing: structured["items"]))")
+      return
+    }
+    #expect(item["title"] == .string("item-title"))
+    #expect(item["hint"] == .string("item-hint"))
+  }
+}
+
+// MARK: - Optional-field fixtures
+
+@Generable
+private struct OptionalInner {
+  var label: String
+}
+
+@Generable
+private struct NestedWithOptional {
+  var title: String
+  var hint: String?
+}
+
+@Generable
+private struct OptionalFieldsOutput {
+  var required: String
+  var note: String?
+  var maybeInner: OptionalInner?
+  var nested: NestedWithOptional
+  var items: [NestedWithOptional]
+}
+
+private struct OptionalFieldsTool: SwiftAIHub.Tool {
+  let name = "optionalFields"
+  let description = "Returns a Generable output with optional fields."
+
+  @Generable
+  struct Arguments {
+    var includeOptionals: Bool
+  }
+
+  func call(arguments: Arguments) async throws -> OptionalFieldsOutput {
+    if arguments.includeOptionals {
+      return OptionalFieldsOutput(
+        required: "present",
+        note: "a note",
+        maybeInner: OptionalInner(label: "inner-label"),
+        nested: NestedWithOptional(title: "nested-title", hint: "nested-hint"),
+        items: [NestedWithOptional(title: "item-title", hint: "item-hint")]
+      )
+    }
+    return OptionalFieldsOutput(
+      required: "present",
+      note: nil,
+      maybeInner: nil,
+      nested: NestedWithOptional(title: "nested-title", hint: nil),
+      items: [NestedWithOptional(title: "item-title", hint: nil)]
+    )
+  }
+}
+
+/// Paths of object members whose value is `.null` (array null elements are ignored).
+private func nullObjectMemberPaths(in value: Value, path: String = "$") -> [String] {
+  switch value {
+  case .object(let fields):
+    var paths: [String] = []
+    for (key, child) in fields {
+      let childPath = "\(path).\(key)"
+      if case .null = child {
+        paths.append(childPath)
+      } else {
+        paths.append(contentsOf: nullObjectMemberPaths(in: child, path: childPath))
+      }
+    }
+    return paths
+  case .array(let items):
+    return items.enumerated().flatMap { index, child in
+      nullObjectMemberPaths(in: child, path: "\(path)[\(index)]")
+    }
+  default:
+    return []
+  }
 }

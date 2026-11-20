@@ -263,6 +263,11 @@ public actor HubToolAdapter {
 
   /// Returns `structuredContent` when the segments contain exactly one
   /// `.structure` segment whose payload is a JSON object.
+  ///
+  /// Object members whose value is `.null` are omitted (recursively, including
+  /// objects nested in arrays) so the result conforms to `outputSchema`, which
+  /// marks optional properties as absent rather than nullable. Null *elements*
+  /// of arrays are preserved.
   static func structuredContent(from segments: [Transcript.Segment]) -> Value? {
     let structures = segments.compactMap { segment -> GeneratedContent? in
       guard case .structure(let structure) = segment else { return nil }
@@ -271,7 +276,25 @@ public actor HubToolAdapter {
     guard structures.count == 1, let content = structures.first else { return nil }
     let value = HubValueMapper.value(from: content)
     guard case .object = value else { return nil }
-    return value
+    return omitNullObjectMembers(value)
+  }
+
+  /// Drops object members whose value is `.null`, recursively through nested
+  /// objects and objects inside arrays. Array null elements are kept.
+  private static func omitNullObjectMembers(_ value: Value) -> Value {
+    switch value {
+    case .object(let fields):
+      var out: [String: Value] = [:]
+      for (key, child) in fields {
+        if case .null = child { continue }
+        out[key] = omitNullObjectMembers(child)
+      }
+      return .object(out)
+    case .array(let items):
+      return .array(items.map { omitNullObjectMembers($0) })
+    default:
+      return value
+    }
   }
 
   private func dispatch(tool: any SwiftAIHub.Tool, arguments: GeneratedContent) async throws
