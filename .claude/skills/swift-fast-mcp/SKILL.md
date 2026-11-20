@@ -46,7 +46,7 @@ let package = Package(
   name: "$ARGUMENTS[0]",
   platforms: [.macOS(.v14)],
   dependencies: [
-    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp.git", from: "3.0.0"),
+    .package(url: "https://github.com/mehmetbaykar/swift-fast-mcp.git", from: "3.0.1"),
   ],
   targets: [
     .target(

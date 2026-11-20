@@ -35,7 +35,7 @@ When invoked:
 ## Critical Rules
 
 - Always use `import FastMCP` — it re-exports `SwiftAIHub`, `Logging`, `UnixSignals`, and `FastMCPAIBridge` (`Sources/swift-fast-mcp/Exports.swift`). Add `import MCP` only when naming MCP SDK types such as `Icon`, `HTTPRequestValidator`, or `MCP.Transport`
-- Generated `Package.swift` files depend on `swift-fast-mcp` from `3.0.0`; FastMCP itself declares swift-ai-hub from `0.10.0` using product `SwiftAIHub` from package `swift-ai-hub`
+- Generated `Package.swift` files depend on `swift-fast-mcp` from `3.0.1`; FastMCP itself declares swift-ai-hub from `0.10.0` using product `SwiftAIHub` from package `swift-ai-hub`
 - Never reach for raw swift-sdk APIs (`Server`, `withMethodHandler`, `StdioTransport`) directly; the builder owns server construction
 - A `@Tool` struct can use flat `@Parameter` stored properties with `func execute() async throws -> Output`, or nested `@Generable struct Arguments` with `func execute(_ arguments: Arguments) async throws -> Output`
 - The wire `name` defaults to snake_case from the type name after dropping a trailing `Tool`: `WeatherTool` → `weather`, `StructuredSearchTool` → `structured_search`. Optional `name:` overrides that with a string literal of 1 to 64 characters from `A-Z`, `a-z`, `0-9`, `_`, or `-` (other values are a compile-time error); omit it or pass `nil` to keep the derived name. Use `name:` to keep an existing public tool name without renaming the Swift type. Optional `title:` and hint arguments publish MCP metadata; `tools/list` keeps registration order
@@ -49,7 +49,7 @@ When invoked:
 - `addTools(_:)`, `addUpstreamMCPServer(name:transport:toolNamePrefix:)`, and `addUpstreamMCPServers(_:)` are `throws`; call them with `try`. Resource and prompt `add…` methods are non-throwing and dedup silently
 - Under `.stdio`, route lifecycle messages through `Logger`. Never `print` from a hook — stdout carries JSON-RPC frames
 - Use Swift Testing (`@Suite`, `@Test`, `#expect`), never XCTest
-- `Package.swift` depends on `swift-fast-mcp` from `3.0.0`; Swift 6.2+; `platforms: [.macOS(.v14)]` for executable targets
+- `Package.swift` depends on `swift-fast-mcp` from `3.0.1`; Swift 6.2+; `platforms: [.macOS(.v14)]` for executable targets
 
 ## Project Structure Convention
 
