@@ -27,6 +27,19 @@ private struct TitledReadOnlyTool {
 }
 
 @Tool(
+  "Search the Apple developer documentation",
+  name: "searchAppleDocumentation",
+  title: "Search Docs",
+  readOnly: true
+)
+private struct ExplicitNameTool {
+  @Generable
+  struct Arguments {}
+
+  func execute(_ arguments: Arguments) async throws -> String { "ok" }
+}
+
+@Tool(
   "Mixed hint tool",
   title: "Mixed Hints",
   readOnly: true,
@@ -89,6 +102,19 @@ struct HubToolMapperAnnotationsTests {
     let annotations = try #require(json["annotations"] as? [String: Any])
     #expect(annotations["readOnlyHint"] as? Bool == true)
     #expect(annotations["title"] == nil)
+    #expect(annotations.keys.sorted() == ["readOnlyHint"])
+  }
+
+  @Test
+  func `explicit name overrides derivation and publishes title and hint`() throws {
+    let mapped = HubToolMapper.mapTool(ExplicitNameTool())
+    let json = try encodedToolJSON(mapped)
+
+    #expect(mapped.name == "searchAppleDocumentation")
+    #expect(json["name"] as? String == "searchAppleDocumentation")
+    #expect(json["title"] as? String == "Search Docs")
+    let annotations = try #require(json["annotations"] as? [String: Any])
+    #expect(annotations["readOnlyHint"] as? Bool == true)
     #expect(annotations.keys.sorted() == ["readOnlyHint"])
   }
 

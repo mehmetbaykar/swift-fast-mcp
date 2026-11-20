@@ -51,11 +51,12 @@ For the canonical example, `WeatherTool` is declared in `Sources/ExampleTools/We
 
 `HubToolMapper.mapTool(_:)` produces an `MCP.Tool` with `name`, optional top-level `title`, `description`, optional `annotations` (behavior hints only), an `inputSchema` projected from the hub tool's `parameters`, and an `outputSchema` when the tool's `Output` is a `@Generable` object type. The mapper round-trips the schema through JSON, then walks the result inlining any `{"$ref": "#/$defs/X"}` references with cycle guards — most MCP clients do not resolve JSON Schema `$ref`, so the wire schema is fully dereferenced before it leaves the server. `tools/list` returns tools in registration order.
 
-`@Tool` derives the wire `name` in snake_case from the type name after dropping a trailing `Tool` (`StructuredSearchTool` → `structured_search`). Optional macro arguments publish a display title and hints:
+`@Tool` derives the wire `name` in snake_case from the type name after dropping a trailing `Tool` (`StructuredSearchTool` → `structured_search`). Optional `name:` overrides that derivation with a string literal of 1 to 64 characters from `A-Z`, `a-z`, `0-9`, `_`, or `-` (other values are a compile-time error); omit it or pass `nil` to keep the derived name. Use `name:` to keep an existing public tool name without renaming the Swift type. Optional macro arguments also publish a display title and hints:
 
 ```swift
 @Tool(
   "Search the Apple developer documentation",
+  name: "searchAppleDocumentation",
   title: "Search Apple Documentation",
   readOnly: true
 )
