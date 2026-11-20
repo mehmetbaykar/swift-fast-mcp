@@ -14,7 +14,7 @@ struct ExampleServer {
     try await FastMCP.builder()
       .name("FastMCP Example Server")
       .title("FastMCP Example")
-      .version("3.0.0")
+      .version("3.0.1")
       .instructions("This server provides weather, math, greeting, and structured search tools.")
 
       // Tools - AI-callable functions
