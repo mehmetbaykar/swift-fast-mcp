@@ -49,7 +49,18 @@ The adapter is an `actor`, so dynamic `register` / `unregister` is safe alongsid
 
 For the canonical example, `WeatherTool` is declared in `Sources/ExampleTools/WeatherTool.swift`. The published tool name is the hub tool's `name`; the example server registers `WeatherTool`, `MathTool`, `GreetingTool`, and `StructuredSearchTool` in `Sources/Example/ExampleServer.swift`.
 
-`HubToolMapper.mapTool(_:)` produces an `MCP.Tool` with `name`, `description`, and an `inputSchema` projected from the hub tool's `parameters`. The mapper round-trips the schema through JSON, then walks the result inlining any `{"$ref": "#/$defs/X"}` references with cycle guards — most MCP clients do not resolve JSON Schema `$ref`, so the wire schema is fully dereferenced before it leaves the server.
+`HubToolMapper.mapTool(_:)` produces an `MCP.Tool` with `name`, optional top-level `title`, `description`, optional `annotations` (behavior hints only), an `inputSchema` projected from the hub tool's `parameters`, and an `outputSchema` when the tool's `Output` is a `@Generable` object type. The mapper round-trips the schema through JSON, then walks the result inlining any `{"$ref": "#/$defs/X"}` references with cycle guards — most MCP clients do not resolve JSON Schema `$ref`, so the wire schema is fully dereferenced before it leaves the server. `tools/list` returns tools in registration order.
+
+`@Tool` derives the wire `name` in snake_case from the type name after dropping a trailing `Tool` (`StructuredSearchTool` → `structured_search`). Optional macro arguments publish a display title and hints:
+
+```swift
+@Tool(
+  "Search the Apple developer documentation",
+  title: "Search Apple Documentation",
+  readOnly: true
+)
+struct SearchDocsTool { … }
+```
 
 A client calling `tools/list` against a server registered with `[WeatherTool()]` sees:
 
@@ -58,7 +69,12 @@ A client calling `tools/list` against a server registered with `[WeatherTool()]`
   "tools": [
     {
       "name": "weather",
+      "title": "Weather",
       "description": "Get current weather for a location",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
       "inputSchema": {
         "additionalProperties": false,
         "description": "Generated Arguments",
@@ -114,12 +130,12 @@ A client calling:
 
 routes through `HubServerRegistrar`'s `CallTool` handler. `params.arguments` is wrapped into `Value.object(...)`, handed to `HubToolAdapter.makeContent(name:arguments:)`, decoded to `GeneratedContent`, decoded again into `WeatherTool.Arguments` (this is where invalid types fail — see Errors below), then `execute(_:)` runs.
 
-For this `String`-returning example, the wire response is a single `text` content block whose payload is JSON string text:
+For this `String`-returning example, the wire response is a single `text` content block with the plain string (not quoted JSON):
 
 ```json
 {
   "content": [
-    {"type": "text", "text": "\"Weather at (37.77, -122.42): 22°C, Sunny\""}
+    {"type": "text", "text": "Weather at (37.77, -122.42): 22°C, Sunny"}
   ],
   "isError": false
 }
@@ -127,11 +143,12 @@ For this `String`-returning example, the wire response is a single `text` conten
 
 ## Returning content
 
-The shape of a tool's `execute` return type drives the wire shape. The protocol-default `makeOutputSegments(from:)` handles three cases (`swift-ai-hub/Sources/SwiftAIHub/Tools/Tool.swift`):
+The shape of a tool's `execute` return type drives the wire shape:
 
-- **`ConvertibleToGeneratedContent` output** → one `Transcript.Segment.structure` carrying `GeneratedContent`. The bridge method returns `[MCP.Tool.Content]`; `Tool.Content` has no structured-content case, and `HubServerRegistrar` builds `CallTool.Result(content:isError:)` without `structuredContent`. `HubToolAdapter` serializes the structure to JSON text via `GeneratedContent.jsonString` and emits a `.text` block. `String` follows this path because it conforms to `Generable`.
-- **Direct `String` output that did not match the previous branch** → one `Transcript.Segment.text`. The adapter maps it to a single MCP `.text` content block.
-- **Anything else `PromptRepresentable`** → `output.promptRepresentation.description`, wrapped as a single `.text` segment.
+- **`String`** → plain text in a single MCP `.text` content block (no `structuredContent`, no `outputSchema`).
+- **`@Generable` object struct** → JSON text in `content` plus `structuredContent` with the object payload; `tools/list` also publishes an `outputSchema`.
+- **Arrays, numbers, and other non-object results** → JSON text in `content` only; no `structuredContent` and no `outputSchema`.
+- **Anything else `PromptRepresentable`** → `output.promptRepresentation.description` as a single `.text` segment.
 
 Tools that need to emit images can override `makeOutputSegments(from:)` directly and return `Transcript.Segment.image(...)`. The adapter preserves typed image data: `.image(.data(bytes, mimeType))` becomes an MCP `.image(data: base64, mimeType:)` block, and `.image(.url(url))` becomes a `.resourceLink(uri:)` wire block with type `resource_link` (the MCP image content type requires inline data + mime, so URL-only images surface as a resource link rather than dropping the URL on the floor).
 
@@ -142,6 +159,10 @@ For the `StructuredSearchTool` example, calling with `{"query": "swift"}` yields
   "content": [
     {"type": "text", "text": "{\"resultCount\":2,\"summary\":\"Found 2 results for swift\"}"}
   ],
+  "structuredContent": {
+    "summary": "Found 2 results for swift",
+    "resultCount": 2
+  },
   "isError": false
 }
 ```
@@ -234,7 +255,7 @@ try await FastMCP.builder()
   .run()
 ```
 
-`tools/list` returns three entries (`weather`, `math`, `structuredSearch`), each with its own inlined input schema. `tools/call` dispatches on `params.name` — there's no shared state, no ordering coupling, and nothing else to wire.
+`tools/list` returns three entries (`weather`, `math`, `structured_search`) in registration order, each with its own inlined input schema. `tools/call` dispatches on `params.name` — there's no shared state, no ordering coupling, and nothing else to wire.
 
 ## Aggregating upstream MCP tools
 

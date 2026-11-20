@@ -9,7 +9,12 @@ public struct Person {
   public var lastName: String?
 }
 
-@Tool("Generate a greeting for a person")
+@Tool(
+  "Generate a greeting for a person",
+  title: "Greeting",
+  readOnly: true,
+  openWorld: false
+)
 public struct GreetingTool {
   @Parameter("The person to greet")
   public var person: Person = Person(firstName: "", lastName: nil)

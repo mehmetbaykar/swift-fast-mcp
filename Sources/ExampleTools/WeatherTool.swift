@@ -14,7 +14,12 @@ public enum TemperatureUnit: String, CaseIterable {
   case celsius, fahrenheit
 }
 
-@Tool("Get current weather for a location")
+@Tool(
+  "Get current weather for a location",
+  title: "Weather",
+  readOnly: true,
+  openWorld: false
+)
 public struct WeatherTool {
   @Parameter("Location coordinates")
   public var coordinate: Coordinate = Coordinate(latitude: 0, longitude: 0)

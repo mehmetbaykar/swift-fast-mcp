@@ -316,7 +316,7 @@ struct UpstreamMCPAggregationTests {
         ]),
         meta: nil
       )
-      #expect(result.content == [.text(text: "\"Result: 5.0\"", annotations: nil, _meta: nil)])
+      #expect(result.content == [.text(text: "Result: 5.0", annotations: nil, _meta: nil)])
       await manager.disconnectAll()
     }
   }

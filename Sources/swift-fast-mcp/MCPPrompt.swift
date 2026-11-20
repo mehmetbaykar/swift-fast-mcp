@@ -20,6 +20,8 @@ public protocol MCPPrompt: Sendable {
   typealias Messages = [PromptMessage]
 
   var name: String { get }
+  /// Human-readable display name for UIs. Distinct from prompt argument names such as `title`.
+  var displayTitle: String? { get }
   var description: String? { get }
   var arguments: [PromptArgumentSpec] { get }
 
@@ -27,6 +29,7 @@ public protocol MCPPrompt: Sendable {
 }
 
 extension MCPPrompt {
+  public var displayTitle: String? { nil }
   public var description: String? { nil }
   public var arguments: [PromptArgumentSpec] { [] }
 }

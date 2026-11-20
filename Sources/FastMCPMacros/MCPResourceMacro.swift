@@ -21,12 +21,20 @@ public struct MCPResourceMacro: MemberMacro, ExtensionMacro {
       throw ResourceMacroError.onlyApplicableToStruct
     }
 
+    let resourceTitle = extractLabeledString(from: node, label: "title")
+    if resourceTitle != nil, hasStoredProperty(named: "displayTitle", in: declaration) {
+      throw ResourceMacroError.titleCollidesWithStoredProperty
+    }
+
     var members: [DeclSyntax] = [
       "public var uri: String { \(raw: literalString(uri)) }"
     ]
 
     if let name = extractLabeledString(from: node, label: "name") {
       members.append("public var name: String? { \(raw: literalString(name)) }")
+    }
+    if let title = resourceTitle {
+      members.append("public var displayTitle: String? { \(raw: literalString(title)) }")
     }
     if let description = extractLabeledString(from: node, label: "description") {
       members.append(
@@ -138,6 +146,24 @@ public struct MCPResourceMacro: MemberMacro, ExtensionMacro {
     return false
   }
 
+  private static func hasStoredProperty(
+    named name: String,
+    in declaration: some DeclGroupSyntax
+  ) -> Bool {
+    for member in declaration.memberBlock.members {
+      guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
+      for binding in varDecl.bindings {
+        guard let pattern = binding.pattern.as(IdentifierPatternSyntax.self),
+          pattern.identifier.text == name
+        else { continue }
+        if binding.accessorBlock == nil {
+          return true
+        }
+      }
+    }
+    return false
+  }
+
   // MARK: - Helpers
 
   private static func literalString(_ value: String) -> String {
@@ -153,11 +179,15 @@ public struct MCPResourceMacro: MemberMacro, ExtensionMacro {
 enum ResourceMacroError: Error, CustomStringConvertible {
   case missingURI
   case onlyApplicableToStruct
+  case titleCollidesWithStoredProperty
 
   var description: String {
     switch self {
     case .missingURI: return "@MCPResource requires a URI string"
     case .onlyApplicableToStruct: return "@MCPResource can only be applied to structs"
+    case .titleCollidesWithStoredProperty:
+      return
+        "Cannot use title: on @MCPResource when the struct already has a stored property named \"displayTitle\". Rename the property named displayTitle."
     }
   }
 }

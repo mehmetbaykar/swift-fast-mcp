@@ -273,7 +273,7 @@ struct StructuredSearchToolUnitTests {
 
   @Test func `bridge publishes tool description`() {
     let mapped = HubToolMapper.mapTool(tool)
-    #expect(mapped.name == "structuredSearch")
+    #expect(mapped.name == "structured_search")
     guard case .object(let fields) = mapped.inputSchema else {
       Issue.record("Expected object input schema")
       return

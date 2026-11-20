@@ -8,7 +8,12 @@ public struct SearchResult {
   public var resultCount: Int
 }
 
-@Tool("Return search results with typed structured output")
+@Tool(
+  "Return search results with typed structured output",
+  title: "Structured Search",
+  readOnly: true,
+  openWorld: false
+)
 public struct StructuredSearchTool {
   public struct QueryError: Error, CustomStringConvertible {
     public let description: String

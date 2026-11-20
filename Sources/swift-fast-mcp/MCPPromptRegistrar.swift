@@ -43,6 +43,7 @@ extension MCPPrompt {
     }
     return MCP.Prompt(
       name: name,
+      title: displayTitle,
       description: description,
       arguments: promptArguments.isEmpty ? nil : promptArguments
     )
